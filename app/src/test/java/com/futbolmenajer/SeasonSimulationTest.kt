@@ -15,7 +15,7 @@ class SeasonSimulationTest {
         val gs = GameEngine.newWorld(42L) { _, _ -> }
         println("Dünya: ${gs.clubs.size} kulüp, ${gs.players.size} oyuncu, ${gs.leagues.size} lig, ${gs.fixtures.size} maç, ${System.currentTimeMillis() - t0} ms")
         val salah = gs.players.values.first { it.lastName == "Salah" && it.isReal }
-        println("Salah kulübü: " + gs.clubName(salah.contract!!.clubId) + " | Wonderkid sayısı: " + gs.players.values.count { it.age(gs.season) <= 21 && it.potential >= 82 } +
+        println("Salah kulübü: " + gs.clubName(salah.contract!!.clubId) + " | Wonderkid sayısı: " + gs.players.values.count { it.age(gs.season) <= 21 && it.potential >= 83 } +
             " | Veteran: " + gs.players.values.count { it.age(gs.season) >= 33 && it.overall >= 72 } + " | Teknik ekip havuzu: " + gs.staffPool.size)
         println("Premier League: " + gs.leagues.values.first { it.name == "Premier League" }.clubIds.joinToString { gs.clubName(it) })
         println("Real Madrid hocası: " + gs.clubs.values.first { it.name == "Real Madrid" }.headCoach)

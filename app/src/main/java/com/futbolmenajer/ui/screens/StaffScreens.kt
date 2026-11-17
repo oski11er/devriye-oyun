@@ -95,7 +95,7 @@ fun StarsScreen(vm: GameViewModel) {
     val list = remember(tab, v) {
         val all = gs.players.values.asSequence().filter { it.contract != null || gs.freeAgents.contains(it.id) }
         when (tab) {
-            0 -> all.filter { it.age(gs.season) <= 21 && it.potential >= 82 }.sortedByDescending { it.potential * 2 + it.overall }.take(150).toList()
+            0 -> all.filter { it.age(gs.season) <= 21 && it.potential >= 83 }.sortedByDescending { it.potential * 2 + it.overall }.take(150).toList()
             1 -> all.filter { it.age(gs.season) >= 33 && it.overall >= 72 }.sortedByDescending { it.overall }.take(150).toList()
             2 -> all.sortedByDescending { it.overall }.take(100).toList()
             else -> all.filter { it.isReal }.sortedByDescending { it.overall }.take(300).toList()

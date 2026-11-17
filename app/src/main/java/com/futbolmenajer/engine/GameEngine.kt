@@ -507,7 +507,7 @@ object GameEngine {
                 val ovr = (32 + lvl * 2 + club.reputation * 0.12 + rnd.nextInt(0, 10)).roundToInt().coerceAtMost(70)
                 val nat = WorldGenerator.pickNationality(club.country, 6, rnd)
                 val p = WorldGenerator.generatedPlayer(gs.newId(), nat, pos, ovr, rnd.nextInt(15, 17), gs.season, rnd)
-                p.potential = (45 + lvl * 3.5 + coef * 0.12 + club.reputation * 0.12 + rnd.nextInt(-12, 22)).roundToInt().coerceIn(ovr + 5, 96)
+                p.potential = (38 + lvl * 2.5 + coef * 0.08 + club.reputation * 0.15 + rnd.nextInt(-10, 16) + (if (rnd.nextInt(30) == 0) 10 else 0)).roundToInt().coerceIn(ovr + 5, 95)
                 p.isYouth = true
                 p.agentId = rnd.nextInt(1, 251)
                 p.contract = Contract(club.id, 150L + rnd.nextInt(0, 300), gs.season + 3)

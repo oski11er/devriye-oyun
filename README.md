@@ -1,6 +1,8 @@
 # ⚽ Futbol Menajer (Android)
 
 Tamamen **çevrimdışı**, Türkçe, Football Manager / Soccer Manager tarzı futbol menajerlik simülasyonu.
+
+**v2 yenilikleri:** 16:9 yatay arayüz · 2.5D canlı maç görünümü (koşan oyuncular, top, taraftarlı tribün, gol/korner/kart animasyonları) · 2026-27 güncel kadrolar (22 büyük kulüp, Kasım 2026) ve güncel lig yapıları (PL, LaLiga, Serie A, Bundesliga, Ligue 1, Süper Lig) · gerçek teknik direktörler · teknik ekip sistemi (işe alma, etkiler) · her kişiye özel çizilmiş portreler (oyuncu, teknik ekip, taraftar) · Wonderkids / Veteranlar / En iyi 100 ekranı.
 Kotlin + Jetpack Compose · Android 8.0+ (minSdk 26) · APK boyutu ≈ 1,5 MB
 
 ---
@@ -20,7 +22,7 @@ Yeni sürümler GitHub Actions ile otomatik derlenir ve **Releases** sayfasına 
 | Sistem | İçerik |
 |---|---|
 | **Veritabanı** | 50 ülke, 75 lig (alt ligler dahil), ~1.270 kulüp, ~36.000 oyuncu, 64 milli takım, 250 oyuncu menajeri (ajan) |
-| **Gerçek oyuncular** | 47 büyük kulübün 2025-26 kadroları (510 gerçek oyuncu) – `RealPlayers.kt`; kadronun geri kalanı kulüp seviyesine göre üretilir |
+| **Gerçek oyuncular** | 22 büyük kulübün 2026-27 güncel kadroları (`RealPlayers2026.kt`, kamuya açık kulüp kadro listelerinden) + 25 kulübün 2025-26 kadroları (`RealPlayers.kt`, transfer olanlar otomatik ayıklanır); kadronun geri kalanı kulüp seviyesine göre üretilir. Güç değerleri oyuna özgü tahminlerdir, lisanslı FIFA/eFootball verisi değildir |
 | **Yetenekler** | Hız, şut, pas, top sürme, savunma, fizik, oyun görüşü, soğukkanlılık, çalışkanlık, liderlik, kalecilik + potansiyel, kişilik, form, moral, kondisyon |
 | **Turnuvalar** | Ligler (yükselme/düşme, play-off), yerel kupalar, süper kupalar, **UEFA Şampiyonlar Ligi / Avrupa Ligi / Konferans Ligi** (36 takımlı lig aşaması + play-off + eleme), milli maç araları, **Dünya Kupası** (48 takım) ve **EURO** |
 | **Taktik** | 8 diziliş, oyun anlayışı, tempo, pres, pas stili, savunma hattı, 9 bireysel talimat, kaptan/penaltıcı/frikikçi, otomatik rotasyon |
@@ -127,5 +129,5 @@ Bu dosya yoksa APK, kurulabilir olması için debug anahtarıyla imzalanır.
 
 ## 6. Notlar ve sınırlar
 * Gerçek oyuncu güç değerleri oyun dengesi için tahminidir; kadrolar 2025-26 sezonu bilgisine dayanır, 2026 yaz transferleri eksik olabilir.
-* Oyuncu fotoğrafları ve resmî lig/kulüp logoları telif nedeniyle eklenmemiştir.
+* Gerçek oyuncu fotoğrafları ve resmî lig/kulüp logoları telif ve kişilik hakları nedeniyle eklenmemiştir; yerine her kişiye özel prosedürel portreler çizilir (`ui/Avatar.kt`).
 * Kayıt dosyası ≈ 3-5 MB (sıkıştırılmış); düşük seviye telefonlarda kaydetme birkaç saniye sürebilir.

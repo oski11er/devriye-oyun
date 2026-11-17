@@ -166,7 +166,7 @@ object WorldGenerator {
                 val ovr = (28 + club.facilities.youthLevel * 2 + club.reputation * 0.15 + rnd.nextInt(0, 10)).roundToInt()
                 val p = generatedPlayer(pid++, pickNationality(club.country, 5, rnd), pos, ovr, rnd.nextInt(15, 19), season, rnd)
                 p.isYouth = true
-                p.potential = (ovr + rnd.nextInt(10, 35) + club.facilities.youthLevel).coerceAtMost(94)
+                p.potential = (ovr + rnd.nextInt(6, 24) + club.facilities.youthLevel + if (rnd.nextInt(40) == 0) 12 else 0).coerceAtMost(92)
                 p.contract = Contract(club.id, 200L + rnd.nextInt(0, 400), season + 3)
                 gs.players[p.id] = p
                 club.youthIds.add(p.id)
@@ -265,8 +265,8 @@ object WorldGenerator {
     fun generatedPlayer(id: Int, nat: String, pos: Position, ovr: Int, age: Int, season: Int, rnd: Random): Player {
         val (f, l) = NameBank.randomName(NameBank.groupFor(nat), rnd)
         val pot = when {
-            age <= 20 -> ovr + rnd.nextInt(5, 25)
-            age <= 23 -> ovr + rnd.nextInt(2, 14)
+            age <= 20 -> ovr + rnd.nextInt(3, 17) + if (rnd.nextInt(60) == 0) 10 else 0
+            age <= 23 -> ovr + rnd.nextInt(1, 10)
             age <= 26 -> ovr + rnd.nextInt(0, 6)
             else -> ovr
         }.coerceAtMost(95)
