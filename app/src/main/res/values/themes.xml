@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.FutbolMenajer" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#0B3D2E</item>
+        <item name="android:windowBackground">#0F1A14</item>
+    </style>
+</resources>
