@@ -443,11 +443,13 @@ func toast(msg: String, kind: String = "") -> void:
 	p.add_child(l)
 	toasts.add_child(p)
 	while toasts.get_child_count() > 4:
-		toasts.get_child(0).free()
+		var old = toasts.get_child(0)
+		toasts.remove_child(old)
+		old.queue_free()
 	get_tree().create_timer(6.5, true).timeout.connect(_kill.bind(p))
 
-func _kill(n: Node) -> void:
-	if is_instance_valid(n):
+func _kill(n) -> void:
+	if is_instance_valid(n) and not n.is_queued_for_deletion():
 		n.queue_free()
 
 func show_offer(bb: String) -> void:
@@ -520,7 +522,8 @@ func _build_modal() -> void:
 ## buttons: [{"t": metin, "f": Callable, "c": "good|dark|pri", "dis": bool, "keep": bool}]
 func modal(title: String, body: String, buttons: Array, extra: Callable = Callable()) -> void:
 	for ch in modal_box.get_children():
-		ch.free()
+		modal_box.remove_child(ch)
+		ch.queue_free()
 	var v = vs()
 	var w = minf(980.0, v.x * 0.92)
 	var scroll: ScrollContainer = modal_box.get_parent()
