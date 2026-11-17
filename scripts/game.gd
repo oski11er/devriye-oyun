@@ -3,23 +3,23 @@ extends Node
 
 const SAVE := "user://devriye_save.json"
 var M
-var G := {}
+var G = {}
 var SH = null
 var mission = null
 var offer = null
-var offer_t := 0.0
-var next_offer := 8.0
+var offer_t = 0.0
+var next_offer = 8.0
 var stop_target = null
-var stop_timer := 0.0
-var backup_cd := 0.0
-var chatter_t := 15.0
-var cam_on := true
+var stop_timer = 0.0
+var backup_cd = 0.0
+var chatter_t = 15.0
+var cam_on = true
 var interact = null
 var int_spots: Array = []
 var int_mission = null
-var hub_tab := "durum"
-var state := "title"     # title / hub / play / interior / over
-var hud_t := 0.0
+var hub_tab = "durum"
+var state = "title"     # title / hub / play / interior / over
+var hud_t = 0.0
 
 func setup(main) -> void:
 	M = main
@@ -72,21 +72,21 @@ func new_game(name: String) -> void:
 	G = {"name": name, "day": 1, "time": 420.0, "money": 300, "credits": 20, "xp": 0, "rank": 0, "disc": 0, "integrity": 50, "suspicion": 0.0, "corrupt": 0, "investigation": false, "suspended": false, "fatigue": 10.0, "hunger": 20.0, "stress": 10.0, "hp": 100.0, "home": 0, "own_homes": [0], "furn": [], "meals": 2, "outfit": "std", "outfits": ["std"], "livery": "std", "liveries": ["std"], "premium": {}, "pcar": -1, "team": [], "recruits": [], "recruit_day": 0, "story": {"stage": 0, "path": "", "info": 0, "ending": "", "planned": 0, "kuzgun_pay": false}, "stats": {"done": 0, "fail": 0, "arrests": 0, "stops": 0}, "bodycam": [], "complaints": [], "rel": 30, "shift_type": "day", "region": "merkez", "veh": "sedan", "medal": false, "engaged": false, "coffee_day": -1, "late": {}}
 
 func save() -> void:
-	var f := FileAccess.open(SAVE, FileAccess.WRITE)
+	var f = FileAccess.open(SAVE, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(G))
 
 func load_save() -> Dictionary:
 	if not FileAccess.file_exists(SAVE):
 		return {}
-	var f := FileAccess.open(SAVE, FileAccess.READ)
+	var f = FileAccess.open(SAVE, FileAccess.READ)
 	if f == null:
 		return {}
 	var d = JSON.parse_string(f.get_as_text())
 	return d if d is Dictionary else {}
 
 func status_text() -> String:
-	var nx := ""
+	var nx = ""
 	if int(G["rank"]) < 7:
 		nx = " / " + str(C.RANKS[int(G["rank"]) + 1]["xp"])
 	return "Rütbe: [b]%s[/b]\nXP: %d%s\nDisiplin puanı: %d • Dürüstlük: %d/100\nBu vardiya: %d başarılı / %d başarısız" % [C.RANKS[int(G["rank"])]["n"], int(G["xp"]), nx, int(G["disc"]), int(G["integrity"]), SH["done"] if SH else 0, SH["fail"] if SH else 0]
@@ -115,8 +115,8 @@ func just_force(text: String) -> void:
 		G["complaints"].append({"text": "Güç kullanımı şikâyeti: " + text, "cam": cam_on, "d": 2, "day": G["day"], "just": true})
 
 func witnesses() -> float:
-	var n := 0.0
-	var p := pp()
+	var n = 0.0
+	var p = pp()
 	for e in M.traffic.peds:
 		if not e.down and e.kind != "suspect" and e.pos.distance_to(p) < 18.0:
 			n += 1.0
@@ -126,8 +126,8 @@ func witnesses() -> float:
 	return n
 
 func cops_near() -> int:
-	var n := 0
-	var p := pp()
+	var n = 0
+	var p = pp()
 	for c in M.traffic.cars:
 		if c.kind == "cop" and c.pos.distance_to(p) < 36.0:
 			n += 1
@@ -203,8 +203,8 @@ func tap(a: String) -> void:
 # ---------------------------------------------------------------- etkileşim
 func find_interact():
 	var best = null
-	var bd := 1e9
-	var p := pp()
+	var bd = 1e9
+	var p = pp()
 	if state == "interior":
 		var lp: Vector2 = M.interior_local()
 		for sp in int_spots:
@@ -215,12 +215,12 @@ func find_interact():
 				bd = d
 				var spr: Dictionary = sp
 				best = {"label": sp["l"], "fn": func(): _use_spot(spr)}
-		var de := lp.distance_to(Vector2(8, 10.2))
+		var de = lp.distance_to(Vector2(8, 10.2))
 		if de < 1.3 and de < bd:
 			best = {"label": "Dışarı çık", "fn": exit_interior}
 		return best
 	if stop_target != null and stop_target.stopped and stop_target.mission == null:
-		var d := p.distance_to(stop_target.pos)
+		var d = p.distance_to(stop_target.pos)
 		if d < 6.0 and d < bd:
 			bd = d
 			best = {"label": "Sürücüyle konuş" if M.mode == "foot" else "Araçtan in (kontrol)", "fn": func(): _need_foot(func(): traffic_stop(stop_target, null))}
@@ -328,8 +328,8 @@ func gen_offer() -> Dictionary:
 	if so != null:
 		return so
 	var pool: Array = []
-	var n := night_f()
-	var add := func(t: String, w: int):
+	var n = night_f()
+	var add = func(t: String, w: int):
 		if int(G["rank"]) >= int(MT[t]["rank"]):
 			for i in w:
 				pool.append(t)
@@ -469,7 +469,7 @@ func fail(m: Dictionary, reason: String) -> void:
 	report(m, false, 0.0, reason)
 
 func report(m: Dictionary, ok: bool, mult: float, note: String) -> void:
-	var has_flags := false
+	var has_flags = false
 	for l in m["log"]:
 		if (l as String).begins_with("⚠") or (l as String).begins_with("✖"):
 			has_flags = true
@@ -488,19 +488,19 @@ func report(m: Dictionary, ok: bool, mult: float, note: String) -> void:
 		body += "\n[color=#ffbf47]📱 Bilinmeyen numara: \"Dosyadaki %s kaybolursa %d$ senin. Kimse bilmeyecek.\" — Kuzgun[/color]" % [blk["n"], blk["amt"]]
 	var checks: Array = []
 	var sum_opt = [null]
-	var extra := func(box: VBoxContainer):
+	var extra = func(box: VBoxContainer):
 		box.add_child(M.ui.mk_label("Deliller (dosyaya eklenecekler):", 22))
 		if m["ev"].is_empty():
 			box.add_child(M.ui.mk_label("  Delil yok", 20))
 		for e in m["ev"]:
-			var cb := CheckBox.new()
+			var cb = CheckBox.new()
 			cb.text = e["n"] + (" (sonuç bekleniyor)" if float(e.get("pending", 0)) > 0 else "")
 			cb.button_pressed = true
 			cb.add_theme_font_size_override("font_size", 20)
 			box.add_child(cb)
 			checks.append(cb)
 		box.add_child(M.ui.mk_label("Olay özeti:", 22))
-		var ob := OptionButton.new()
+		var ob = OptionButton.new()
 		ob.add_theme_font_size_override("font_size", 20)
 		ob.add_item("Olayları eksiksiz ve doğru anlat")
 		ob.add_item("Kısa ve yüzeysel geç")
@@ -508,12 +508,12 @@ func report(m: Dictionary, ok: bool, mult: float, note: String) -> void:
 			ob.add_item("Kendi hatalarını rapora yazma")
 		box.add_child(ob)
 		sum_opt[0] = ob
-	var submit := func(dark: bool):
-		var inc := 0
+	var submit = func(dark: bool):
+		var inc = 0
 		for cb in checks:
 			if (cb as CheckBox).button_pressed:
 				inc += 1
-		var tot := checks.size()
+		var tot = checks.size()
 		var sm: int = (sum_opt[0] as OptionButton).selected if sum_opt[0] != null else 0
 		var q = (float(inc) / tot if tot > 0 else 0.7) * 0.5 + (0.2 if m["st"].size() > 0 else 0.1) + [0.3, 0.12, 0.22][sm]
 		var lines: Array = []
@@ -616,7 +616,7 @@ func foot_stage(m: Dictionary, dt: float) -> void:
 		arrest_dialog(s, m)
 
 func team_bonus(tr: String) -> float:
-	var b := 0.0
+	var b = 0.0
 	for t in G["team"]:
 		if t["trait"] == tr and t["assign"] == "takviye":
 			b = maxf(b, float(t["skill"]) / 100.0)
@@ -631,7 +631,7 @@ func call_backup() -> void:
 		return
 	backup_cd = 45.0
 	var mem: Array = G["team"].filter(func(t): return t["assign"] == "takviye")
-	var n := mini(2, mem.size()) if mem.size() > 0 else 1
+	var n = mini(2, mem.size()) if mem.size() > 0 else 1
 	for i in n:
 		var c = M.traffic.spawn_car("cop", 45, 70)
 		if c != null:
@@ -672,7 +672,7 @@ func on_car_hit(c, imp: float) -> void:
 
 # ---------------------------------------------------------------- görev türleri
 func _m_setup(m: Dictionary) -> void:
-	var p := pp()
+	var p = pp()
 	match m["type"]:
 		"patrol":
 			m["cps"] = [M.city.road_point(p, G["region"], 30, 300)["p"], M.city.road_point(p, G["region"], 30, 300)["p"], M.city.road_point(p, G["region"], 30, 300)["p"]]
@@ -833,7 +833,7 @@ func _m_spawn(m: Dictionary) -> void:
 			inf.mission = m
 
 func _m_update(m: Dictionary, dt: float) -> void:
-	var p := pp()
+	var p = pp()
 	match m["type"]:
 		"patrol":
 			var c: Vector2 = m["cps"][m["ci"]]
@@ -939,7 +939,7 @@ func _m_update(m: Dictionary, dt: float) -> void:
 				fail(m, "Kimliğin deşifre oldu, hedef kaçtı")
 
 func _m_inter(m: Dictionary):
-	var p := pp()
+	var p = pp()
 	match m["type"]:
 		"speed":
 			var c = m.get("car")
@@ -1031,7 +1031,7 @@ func traffic_stop(c, m) -> void:
 	bt.append(B("🚛 Araca el koy (çekici)", func(): _ts_end(c, m, "impound")))
 	bt.append(B("🔗 Gözaltına al", func(): _ts_end(c, m, "arrest")))
 	if d.get("bshown", false) and not d.get("brefused", false):
-		var rk := risk_calc()
+		var rk = risk_calc()
 		bt.append(B("💵 Rüşveti al ve bırak (+$%d) risk %s" % [d["bribe"], mix_pct(rk)], func(): _ts_bribe(c, m, rk), "dark"))
 		bt.append(B("✋ Rüşveti reddet, tutanağa geçir", func(): _ts_refuse(c, m), "good"))
 	bt.append(B("Serbest bırak", func(): _ts_end(c, m, "release")))
@@ -1076,13 +1076,13 @@ func _ts_refuse(c, m) -> void:
 func _ts_end(c, m, kind: String) -> void:
 	var d: Dictionary = c.drv
 	var kn = {"speed": int(d["speed"]) > int(d["limit"]), "lic": d.get("doc", false) and d["lic"] != "Geçerli", "drunk": d.get("alc", false) and d["drunk"], "stolen": d.get("doc", false) and d["stolen"], "contra": d.get("srch", false) and d["contra"]}
-	var any := false
+	var any = false
 	for v in kn.values():
 		if v:
 			any = true
 	var serious: bool = kn["drunk"] or kn["stolen"] or kn["contra"]
-	var score := 0.0
-	var txt := ""
+	var score = 0.0
+	var txt = ""
 	match kind:
 		"fine":
 			if any:
@@ -1145,7 +1145,7 @@ func _ts_end(c, m, kind: String) -> void:
 		SH["stops"] += 1
 		G["stats"]["stops"] += 1
 		var mm = roundi(25 * score * (1 + int(G["rank"]) * 0.1))
-		var xp := roundi(20 * score)
+		var xp = roundi(20 * score)
 		SH["earn"] += mm
 		SH["xp"] += xp
 		G["xp"] += xp
@@ -1161,11 +1161,11 @@ func arrest_dialog(s, m: Dictionary) -> void:
 	var desc: String = {"armed": "Şüphelinin elinde bıçak var! Geri çekilmiyor.", "resist": "Şüpheli kollarını savuruyor, kelepçeye direniyor.", "comply": "Şüpheli ellerini kaldırdı, teslim oluyor."}[s.state]
 	var bb = 0.2 if m.get("backup", false) else 0.0
 	var bt: Array = []
-	var again := func(): arrest_dialog(s, m)
-	var arrested := func():
+	var again = func(): arrest_dialog(s, m)
+	var arrested = func():
 		bc("Şüpheli kelepçelendi")
 		G["stats"]["arrests"] += 1
-		var done := func(): success(m, 1.0, "Şüpheli yakalandı")
+		var done = func(): success(m, 1.0, "Şüpheli yakalandı")
 		modal("🔗 Şüpheli kelepçelendi", "Şüpheli ekip otosuna alınacak. Haklarını okudun.", [
 			B("🔍 Üst araması yap", func():
 				bc("Üst araması (yakalama sonrası)")
@@ -1228,7 +1228,7 @@ func arrest_dialog(s, m: Dictionary) -> void:
 	if s.bribe < 0:
 		s.bribe = randi_range(4, 16) * 50 if randf() < 0.3 else 0
 	if s.bribe > 0 and m["type"] != "final":
-		var rk := risk_calc()
+		var rk = risk_calc()
 		bt.append(B("💵 \"%d$ vereyim, bırak beni\" — kabul et (risk %s)" % [s.bribe, mix_pct(rk)], func(): corrupt_act("Rüşvet karşılığı şüpheliyi serbest bırakma", s.bribe, rk, 3); fail(m, "Şüpheli \"kaçtı\" (bilerek serbest bırakıldı)"), "dark"))
 	bt.append(B("Serbest bırak", func(): bc("⚠ Şüpheli serbest bırakıldı", true); G["suspicion"] = clampf(float(G["suspicion"]) + 4, 0, 100); fail(m, "Şüpheli serbest bırakıldı")))
 	modal("🚨 Şüpheli Müdahalesi", "%s\n[font_size=18]Kamera: %s • Takviye: %s[/font_size]" % [desc, "[color=#ff6b6b]● KAYITTA[/color]" if cam_on else "kapalı", "var" if m.get("backup", false) else "yok"], bt)
@@ -1249,10 +1249,10 @@ func accident_dialog(m: Dictionary) -> void:
 			body += "• " + (e["n"] + (" (%d sn)" % ceili(e["pending"])) if float(e.get("pending", 0)) > 0 else e["n"]) + "\n"
 	if D.has("photo"):
 		body += "\n📷 Fren izi analizi: [b]%s[/b] aracı hatalı görünüyor (güvenilirlik ~%%70)." % AB[m["ph"]]
-	var stt := func(i: int) -> String:
+	var stt = func(i: int) -> String:
 		return C.pick(["\"Yeşil yanıyordu bence... O çok hızlı geliyordu!\"", "\"Telefona bakmıyordum, yemin ederim. O çıktı önüme.\""]) if i == g else C.pick(["\"Ben yeşildeydim, o kırmızıda daldı!\"", "\"Sinyal verdim, yavaşladım, arkadan vurdu!\""])
-	var re := func(): accident_dialog(m)
-	var dec := func(i: int, bribed: bool):
+	var re = func(): accident_dialog(m)
+	var dec = func(i: int, bribed: bool):
 		D["dec"] = true
 		D["ok"] = i == g
 		bc("Kusur tespiti: Sürücü " + AB[i])
@@ -1266,16 +1266,16 @@ func accident_dialog(m: Dictionary) -> void:
 			bc("Kaza alanı güvenliğe alındı")
 			m["props"] = []
 			for i in 4:
-				var cone := MeshInstance3D.new()
-				var cm := CylinderMesh.new()
+				var cone = MeshInstance3D.new()
+				var cm = CylinderMesh.new()
 				cm.top_radius = 0.03
 				cm.bottom_radius = 0.22
 				cm.height = 0.7
 				cone.mesh = cm
-				var cmat := StandardMaterial3D.new()
+				var cmat = StandardMaterial3D.new()
 				cmat.albedo_color = Color(1, 0.42, 0.06)
 				cone.material_override = cmat
-				var a := i * PI / 2
+				var a = i * PI / 2
 				var cp: Vector2 = (m["p"] as Vector2) + Vector2(cos(a) * 6.0, sin(a) * 4.0)
 				cone.position = Vector3(cp.x, 0.35, cp.y)
 				M.add_child(cone)
@@ -1295,7 +1295,7 @@ func accident_dialog(m: Dictionary) -> void:
 		bt.append(B("⚖ Kusurlu: Sürücü A", func(): dec.call(0, false)))
 		bt.append(B("⚖ Kusurlu: Sürücü B", func(): dec.call(1, false)))
 		if int(m.get("bribe", 0)) > 0:
-			var rk := risk_calc()
+			var rk = risk_calc()
 			bt.append(B("💵 %s sürücüsü: \"Kusuru ona yaz, %d$ senin\" (risk %s)" % [AB[g], m["bribe"], mix_pct(rk)], func(): corrupt_act("Rüşvet karşılığı kusur değiştirme", m["bribe"], rk, 2); dec.call(1 - g, true), "dark"))
 	if D.has("dec"):
 		bt.append(B("🚛 Çekici çağır, tutanağı kapat", func(): bc("Çekici çağrıldı, tutanak kapatıldı"); success(m, 1.0 if D["ok"] else 0.45, "Kusur doğru tespit edildi" if D["ok"] else "Hatalı kusur tespiti — itiraz edildi"), "good"))
@@ -1309,13 +1309,13 @@ func fight_dialog(m: Dictionary) -> void:
 	var body = "%s: %s\n%s: %s\n%s" % [cl[0][0], m["nm"][0], cl[1][0], m["nm"][1], "[color=#5ee08a]Taraflar ayrıldı.[/color]" if F.has("sep") else "[color=#ff6b6b]Taraflar yumruklaşıyor![/color]"]
 	if F.has("wit"):
 		body += "\n\n👥 Tanıklar: \"Kavgayı [b]%s[/b] olan başlattı, diğeri kendini savundu.\"" % cl[m["inst"]][0]
-	var re := func(): fight_dialog(m)
-	var sep := func():
+	var re = func(): fight_dialog(m)
+	var sep = func():
 		F["sep"] = true
 		for f in m["f"]:
 			f.ai = "idle"
 		bc("Taraflar ayrıldı")
-	var fin := func(i: int):
+	var fin = func(i: int):
 		bc("Gözaltı: " + m["nm"][i])
 		if i == m["inst"]:
 			G["stats"]["arrests"] += 1
@@ -1349,7 +1349,7 @@ func fight_dialog(m: Dictionary) -> void:
 # ---------------------------------------------------------------- hırsızlık: olay yeri (iç mekân)
 func enter_scene(m: Dictionary) -> void:
 	var g: Dictionary = m["g"]
-	var owner := C.rname()
+	var owner = C.rname()
 	int_mission = m
 	int_spots = [
 		{"x": 2.2, "z": 0.7, "l": "Zorlanmış pencereyi incele", "done": false, "k": "win"},
@@ -1471,7 +1471,7 @@ func negotiate(m: Dictionary) -> void:
 		m["round"] = 0
 		m["hk"] = C.pick(["korkmuş", "öfkeli", "çaresiz"])
 	var hk: String = m["hk"]
-	var lines := {"korkmuş": "\"Yaklaşmayın! Hapse girmek istemiyorum!\"", "öfkeli": "\"Herkes bedelini ödeyecek! Patron beni kovdu!\"", "çaresiz": "\"Çocuğumu göremiyorum... başka çarem kalmadı.\""}
+	var lines = {"korkmuş": "\"Yaklaşmayın! Hapse girmek istemiyorum!\"", "öfkeli": "\"Herkes bedelini ödeyecek! Patron beni kovdu!\"", "çaresiz": "\"Çocuğumu göremiyorum... başka çarem kalmadı.\""}
 	var opts = [["🤝 Empati: \"Seni anlıyorum, konuşalım.\"", {"korkmuş": 15, "öfkeli": 5, "çaresiz": 20}], ["🧱 Kararlı ol: \"Silahı bırak, başka çıkış yok.\"", {"korkmuş": -10, "öfkeli": 12, "çaresiz": -5}], ["📜 Söz ver: \"Avukatın ve adil bir süreç olacak.\"", {"korkmuş": 12, "öfkeli": 0, "çaresiz": 12}], ["⚠ Tehdit: \"Özel harekat kapıda!\"", {"korkmuş": -20, "öfkeli": -15, "çaresiz": -15}]]
 	var bt: Array = []
 	for o in opts:
@@ -1509,7 +1509,7 @@ func resolve_hostage(m: Dictionary) -> void:
 # ---------------------------------------------------------------- hikâye görevleri
 func meet_dialog(m: Dictionary) -> void:
 	m["no_timer"] = true
-	var fin := func(t: String):
+	var fin = func(t: String):
 		m["st"].append(t)
 		success(m, 1.0, "Muhbir görüşmesi tamamlandı")
 	modal("🐦 Serçe", "Gölgeden bir ses: \"Kuzgun'u soruyormuşsun. Liman depolarından mal giriyor, gümrükte de birileri göz yumuyor. Ama bilgi bedava değil memur bey.\"\n\nBir an duraksıyor: \"Bir de... Kuzgun seni tanımak istiyor. Ayda 500$. Sadece bazı devriyeleri görmezden gel.\"", [
@@ -1578,8 +1578,8 @@ func plan_op() -> void:
 		G["story"]["planned"] = 0
 		modal("Plan beklemede", "Son operasyonu planlamak için Komiser Yardımcısı rütbesi gerekiyor.", [B("Brifinge dön", briefing)])
 		return
-	var tb := func(t: String) -> int: return roundi(team_bonus(t) * 100)
-	var go := func():
+	var tb = func(t: String) -> int: return roundi(team_bonus(t) * 100)
+	var go = func():
 		G["story"]["planned"] = 1
 		radio("Operasyon planlandı. Kuzgun sinyali gelince anons edilecek.", "good")
 		briefing()
@@ -1616,18 +1616,18 @@ func briefing() -> void:
 	if int(G["story"]["stage"]) == 3 and int(G["rank"]) >= 2:
 		betrayal()
 		return
-	var sel := {}
+	var sel = {}
 	var vs: Array = []
 	for k in C.VEH.keys():
 		var v: Dictionary = C.VEH[k]
 		if (v.has("premium") and G["premium"].get(k, false)) or (not v.has("premium") and int(G["rank"]) >= int(v["rank"])):
 			vs.append(k)
-	var extra := func(box: VBoxContainer):
+	var extra = func(box: VBoxContainer):
 		if float(G["fatigue"]) > 60:
 			box.add_child(M.ui.mk_label("⚠ Çok yorgunsun! Dikkatin ve tepki süren düşük olacak.", 20))
-		var mk := func(label: String, items: Array, key: String, cur: int):
+		var mk = func(label: String, items: Array, key: String, cur: int):
 			box.add_child(M.ui.mk_label(label, 20))
-			var ob := OptionButton.new()
+			var ob = OptionButton.new()
 			ob.add_theme_font_size_override("font_size", 20)
 			ob.custom_minimum_size = Vector2(0, 48)
 			for it in items:
@@ -1699,11 +1699,11 @@ func _outfit_col() -> String:
 	return "#1a2c5c"
 
 func _set_weather() -> void:
-	var r := randf()
+	var r = randf()
 	M.weather = "clear" if r < 0.5 else ("overcast" if r < 0.7 else ("rain" if r < 0.87 else "fog"))
 
 const WNAME := {"clear": "Açık", "overcast": "Bulutlu", "rain": "Yağmurlu", "fog": "Sisli"}
-var weather_t := 120.0
+var weather_t = 120.0
 
 func end_shift(early: bool) -> void:
 	if SH == null:
@@ -1718,12 +1718,12 @@ func end_shift(early: bool) -> void:
 	M.ui.set_hud_visible(false)
 	var sal: int = C.RANKS[int(G["rank"])]["sal"]
 	var lines: Array = []
-	var cut := 0
+	var cut = 0
 	var dmg_cost = roundi(M.dmg * 2.5)
 	var perf = clampi(roundi(50 + SH["done"] * 12 - SH["fail"] * 14 - SH["declined"] * 4 + SH["stops"] * 3 + minf(20, float(SH["patrol"]) * 0.15) - SH["disc"] * 5 - (20 if early else 0) - SH["peds"] * 15), 0, 100)
-	var grade := "A" if perf >= 85 else ("B" if perf >= 70 else ("C" if perf >= 55 else ("D" if perf >= 40 else "F")))
+	var grade = "A" if perf >= 85 else ("B" if perf >= 70 else ("C" if perf >= 55 else ("D" if perf >= 40 else "F")))
 	var team_lines: Array = []
-	var team_xp := 0
+	var team_xp = 0
 	for t in G["team"]:
 		if t["assign"] != "takviye":
 			var solved = maxi(0, roundi(float(t["skill"]) / 100.0 * float(C.DIST[t["assign"]]["crime"]) * 3.0 * (float(t["morale"]) / 80.0) + randf() - 0.3))
@@ -1761,7 +1761,7 @@ func end_shift(early: bool) -> void:
 	G["disc"] += SH["disc"]
 	if int(SH["disc"]) == 0 and int(SH["corrupt_n"]) == 0:
 		G["disc"] = maxi(0, int(G["disc"]) - 2)
-	var over := ""
+	var over = ""
 	var sanc: Array = []
 	if int(SH["disc"]) >= 4:
 		cut += roundi(sal * 0.2)
@@ -1777,12 +1777,12 @@ func end_shift(early: bool) -> void:
 			G["rank"] -= 1
 			sanc.append("RÜTBE DÜŞÜRME → " + C.RANKS[int(G["rank"])]["n"])
 		G["disc"] -= 8
-	var ia := "Herhangi bir inceleme yok."
+	var ia = "Herhangi bir inceleme yok."
 	if int(G["corrupt"]) > 0:
 		var ch = clampf(float(G["suspicion"]) / 140.0 + SH["detections"].size() * 0.35 + (0.15 if G["investigation"] else 0.0), 0, 0.95)
 		var roll = randf() < ch if (int(SH["corrupt_n"]) > 0 or SH["detections"].size() > 0) else randf() < ch * 0.3
 		if roll:
-			var sev := 0
+			var sev = 0
 			for dd in SH["detections"]:
 				sev += int(dd["sev"])
 			sev = maxi(sev, 1)
@@ -1816,11 +1816,11 @@ func end_shift(early: bool) -> void:
 		honor += 500
 		G["xp"] += 200
 		lines.append("[color=#5ee08a]🎖 ÜSTÜN HİZMET MADALYASI! +$500, +200 XP[/color]")
-	var cr := 5 if grade == "A" else (2 if grade == "B" else 0)
+	var cr = 5 if grade == "A" else (2 if grade == "B" else 0)
 	G["credits"] += cr
 	var net = sal + int(SH["earn"]) + honor - int(SH["fines"]) - dmg_cost - cut
 	G["money"] += net
-	var promo := ""
+	var promo = ""
 	if over == "" and int(G["rank"]) < 7 and int(G["xp"]) >= int(C.RANKS[int(G["rank"]) + 1]["xp"]) and int(G["disc"]) < 20 and grade != "F":
 		G["rank"] += 1
 		promo = "[color=#5ee08a][b]⭐ TERFİ! Yeni rütbe: %s[/b][/color]\n\n" % C.RANKS[int(G["rank"])]["n"]
@@ -1868,11 +1868,11 @@ func open_hub(tab: String = "") -> void:
 		hub_tab = tab
 	M.ui.set_hud_visible(false)
 	var tabs = [["durum", "Durum"], ["ev", "Ev"], ["market", "Market"], ["sosyal", "Sosyal"], ["garaj", "Garaj"], ["kiyafet", "Kıyafet"], ["ekip", "Ekip"], ["premium", "★ Mağaza"], ["kayit", "Kayıtlar"]]
-	var body := ""
+	var body = ""
 	var rows: Array = []
-	var row := func(l: String, bt: String, fn: Callable, dis: bool = false):
+	var row = func(l: String, bt: String, fn: Callable, dis: bool = false):
 		rows.append([l, bt, fn, dis])
-	var re := func(): open_hub()
+	var re = func(): open_hub()
 	match hub_tab:
 		"durum":
 			body = "👮 [b]%s[/b] — %s\n📅 Gün %d • 🕒 %s\n💵 Banka: [b]$%d[/b] • ★ Kredi: %d\nXP: %d%s\n\n😴 Yorgunluk: %d • 🍽 Açlık: %d • 😣 Stres: %d • ❤ Sağlık: %d\n🏠 %s (konfor %d)\n\n⚖ Disiplin puanı: %d • 🤝 Dürüstlük: %d/100%s%s\n\n[i]Yorgunluk vardiyada dikkat ve tepki süresini düşürür. Uyumadan çalışma![/i]" % [G["name"], C.RANKS[int(G["rank"])]["n"], G["day"], C.fmt_clock(G["time"]), G["money"], G["credits"], G["xp"], (" / %d (sonraki rütbe)" % C.RANKS[int(G["rank"]) + 1]["xp"]) if int(G["rank"]) < 7 else "", roundi(G["fatigue"]), roundi(G["hunger"]), roundi(G["stress"]), roundi(G["hp"]), C.HOMES[int(G["home"])]["n"], comfort(), G["disc"], G["integrity"], "\n[color=#ff6b6b]Hakkında gizli soruşturma var.[/color]" if G["investigation"] else "", "\n[color=#ffbf47]İç denetim seni izliyor olabilir.[/color]" if float(G["suspicion"]) > 40 else ""]
@@ -1881,7 +1881,7 @@ func open_hub(tab: String = "") -> void:
 			for i in C.HOMES.size():
 				var h: Dictionary = C.HOMES[i]
 				var own: bool = G["own_homes"].has(i)
-				var ii := i
+				var ii = i
 				row.call("%s — konfor %d%s%s" % [h["n"], h["com"], (" • kira $%d/gün" % h["rent"]) if int(h["rent"]) > 0 else "", (" • $%d" % h["price"]) if int(h["price"]) > 0 else ""], "Oturuyorsun" if i == int(G["home"]) else ("Taşın" if (own or int(h["rent"]) > 0 or i == 0) else "Satın al"), func():
 					if not own and int(h["price"]) > 0:
 						if int(G["money"]) < int(h["price"]):
@@ -1937,7 +1937,7 @@ func open_hub(tab: String = "") -> void:
 			body += "\n[b]Kişisel araç[/b]\n[i]Gelirine göre aşırı lüks harcama iç denetimin dikkatini çekebilir.[/i]"
 			for i in C.PCARS.size():
 				var pc: Dictionary = C.PCARS[i]
-				var ii2 := i
+				var ii2 = i
 				row.call("%s — $%d" % [pc["n"], pc["p"]], "Senin" if int(G["pcar"]) == i else "Satın al", func():
 					if int(G["money"]) < int(pc["p"]):
 						radio("Yetersiz bakiye.", "bad")
@@ -2025,8 +2025,8 @@ func open_hub(tab: String = "") -> void:
 			row.call("Oyunu kaydet", "Kaydet", func(): save(); radio("Kaydedildi.", "good"); re.call())
 			row.call("Grafik kalitesi: " + M.quality_name(), "Değiştir", func(): M.cycle_quality(); re.call())
 			row.call("Ana menü", "Çık", func(): save(); title_screen())
-	var extra := func(box: VBoxContainer):
-		var tb := HFlowContainer.new()
+	var extra = func(box: VBoxContainer):
+		var tb = HFlowContainer.new()
 		for t in tabs:
 			var b: Button = M.ui.mk_button(t[1], "pri" if t[0] == hub_tab else "")
 			b.custom_minimum_size = Vector2(0, 46)
@@ -2036,7 +2036,7 @@ func open_hub(tab: String = "") -> void:
 		box.add_child(tb)
 		box.move_child(tb, 1)
 		for r in rows:
-			var h := HBoxContainer.new()
+			var h = HBoxContainer.new()
 			var l: Label = M.ui.mk_label(r[0], 20)
 			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			h.add_child(l)
@@ -2051,7 +2051,7 @@ func open_hub(tab: String = "") -> void:
 	modal("🏠 Kişisel Yaşam", body, [B("😴 Uyu (8 saat)", sleep), B("🚓 Vardiyaya git", briefing, "pri")], extra)
 
 func sleep() -> void:
-	var c := comfort()
+	var c = comfort()
 	G["fatigue"] = maxf(0, float(G["fatigue"]) - c)
 	G["hunger"] = minf(100, float(G["hunger"]) + 18)
 	G["stress"] = maxf(0, float(G["stress"]) - (15 if G["engaged"] else 8))
@@ -2074,7 +2074,7 @@ func sleep() -> void:
 	modal("😴 Uyudun", msg, [B("Devam", func(): open_hub())])
 
 func show_bodycam(back: Callable) -> void:
-	var t := ""
+	var t = ""
 	var bl: Array = G["bodycam"].slice(-50)
 	bl.reverse()
 	for e in bl:
@@ -2104,11 +2104,11 @@ func title_screen() -> void:
 	G = {}
 	SH = null
 	M.ui.set_hud_visible(false)
-	var sv := load_save()
+	var sv = load_save()
 	var name_edit = [null]
-	var extra := func(box: VBoxContainer):
+	var extra = func(box: VBoxContainer):
 		box.add_child(M.ui.mk_label("Memur adı:", 20))
-		var le := LineEdit.new()
+		var le = LineEdit.new()
 		le.text = sv.get("name", "Kerem Aydın")
 		le.max_length = 24
 		le.add_theme_font_size_override("font_size", 22)
@@ -2142,7 +2142,7 @@ func _process(delta: float) -> void:
 	if float(G["time"]) >= 1440.0:
 		G["time"] = float(G["time"]) - 1440.0
 		G["day"] += 1
-	var hr := delta * C.TS / 60.0
+	var hr = delta * C.TS / 60.0
 	G["fatigue"] = clampf(float(G["fatigue"]) + hr * 9.0 * (1.4 if float(G["hunger"]) > 80 else 1.0) * (1.2 if float(G["stress"]) > 70 else 1.0), 0, 100)
 	G["hunger"] = clampf(float(G["hunger"]) + hr * 6.0, 0, 100)
 	if not cam_on:
@@ -2161,7 +2161,7 @@ func _process(delta: float) -> void:
 		_hud(delta)
 		return
 	M.traffic.update(delta)
-	var p := pp()
+	var p = pp()
 	if M.mode == "car" and M.siren and stop_target == null and not (mission != null and mission.get("car") != null):
 		var tgt = null
 		var fw: Vector2 = M.car_fwd()
@@ -2207,7 +2207,7 @@ func _process(delta: float) -> void:
 				var cp: Vector2 = c.pos
 				var cdir: int = c.dir
 				M.traffic.remove_car(c)
-				var am := make_mission("accident", {"given": true, "p": cp, "dir": cdir})
+				var am = make_mission("accident", {"given": true, "p": cp, "dir": cdir})
 				am["limit"] = 70.0
 				am["t"] = 70.0
 				radio("Yakınında bir trafik kazası oldu!", "warn")
@@ -2240,9 +2240,9 @@ func _hud(delta: float) -> void:
 	if hud_t > 0:
 		return
 	hud_t = 0.1
-	var p := pp()
+	var p = pp()
 	var info = "%s\n$%d • ★%d\n%s • Gün %d • %s\n%s%s" % [C.RANKS[int(G["rank"])]["n"], G["money"], G["credits"], C.fmt_clock(G["time"]), G["day"], WNAME[M.weather], dist_n(C.district_p(p)), " ✓" if C.district_p(p) == G["region"] else ""]
-	var mt := ""
+	var mt = ""
 	if mission != null:
 		mt = "#%d %s\n%s\n%s%.0f m" % [mission["id"], mission["n"], obj_text(mission), "" if mission["no_timer"] else ("⏱ " + C.fmt_t(mission["t"]) + " • "), p.distance_to(mission["p"])]
 	elif stop_target != null:

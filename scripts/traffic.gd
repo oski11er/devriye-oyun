@@ -4,69 +4,69 @@ extends Node3D
 var M
 var cars: Array = []
 var peds: Array = []
-var spawn_t := 0.0
-var geo_cache := {}
-var mat_cache := {}
+var spawn_t = 0.0
+var geo_cache = {}
+var mat_cache = {}
 var human_scene: PackedScene
 
 class NCar:
 	var node: AnimatableBody3D
 	var vis: Node3D
-	var pos := Vector2.ZERO
-	var dir := 0
-	var v := 0.0
-	var base := 10.0
-	var sbase := 0.0
-	var ni := 0.0
-	var hl := false
-	var kind := "civ"
-	var col := Color.WHITE
-	var plate := ""
-	var speeder := false
-	var flee := false
-	var backup := false
-	var stopping := false
-	var stopped := false
-	var wreck := false
-	var hp := 100.0
+	var pos = Vector2.ZERO
+	var dir = 0
+	var v = 0.0
+	var base = 10.0
+	var sbase = 0.0
+	var ni = 0.0
+	var hl = false
+	var kind = "civ"
+	var col = Color.WHITE
+	var plate = ""
+	var speeder = false
+	var flee = false
+	var backup = false
+	var stopping = false
+	var stopped = false
+	var wreck = false
+	var hp = 100.0
 	var mission = null
-	var keep := false
+	var keep = false
 	var drv = null
-	var angry := 0.0
-	var pull := 0.0
-	var yaw := 0.0
-	var radared := false
-	var skill := 50.0
-	var big := false
+	var angry = 0.0
+	var pull = 0.0
+	var yaw = 0.0
+	var radared = false
+	var skill = 50.0
+	var big = false
 	var lb: Array = []
 
 class NPed:
 	var node: Node3D
 	var anim: AnimationPlayer
-	var pos := Vector2.ZERO
-	var face := Vector2(0, 1)
-	var kind := "civ"
-	var ai := "idle"
-	var bx := 0
-	var bz := 0
-	var s := 0.0
-	var per := 1.0
-	var ds := 1.0
-	var v := 1.4
-	var down := false
-	var down_t := 0.0
-	var keep := false
+	var pos = Vector2.ZERO
+	var face = Vector2(0, 1)
+	var kind = "civ"
+	var ai = "idle"
+	var bx = 0
+	var bz = 0
+	var s = 0.0
+	var per = 1.0
+	var ds = 1.0
+	var v = 1.4
+	var down = false
+	var down_t = 0.0
+	var keep = false
 	var mission = null
-	var stam := 14.0
-	var wa := 0.0
-	var armed := false
-	var state := ""
-	var bribe := -1
-	var warned := false
-	var col := Color.GRAY
-	var center := Vector2.ZERO
-	var side := 0.0
-	var moving := false
+	var stam = 14.0
+	var wa = 0.0
+	var armed = false
+	var state = ""
+	var bribe = -1
+	var warned = false
+	var col = Color.GRAY
+	var center = Vector2.ZERO
+	var side = 0.0
+	var moving = false
 	var marker: Node3D
 
 func setup(main) -> void:
@@ -76,7 +76,7 @@ func setup(main) -> void:
 func _mat(key: String, c: Color, rough: float, metal: float, clear: bool = false, emis: float = 0.0) -> StandardMaterial3D:
 	if mat_cache.has(key):
 		return mat_cache[key]
-	var m := StandardMaterial3D.new()
+	var m = StandardMaterial3D.new()
 	m.albedo_color = c
 	m.roughness = rough
 	m.metallic = metal
@@ -92,9 +92,9 @@ func _mat(key: String, c: Color, rough: float, metal: float, clear: bool = false
 	return m
 
 func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, out: Vector3) -> void:
-	var n := (b - a).cross(c - a).normalized()
+	var n = (b - a).cross(c - a).normalized()
 	if n.dot(out) < 0:
-		var t := b
+		var t = b
 		b = d
 		d = t
 		n = -n
@@ -107,24 +107,24 @@ func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, out:
 	st.add_vertex(d)
 
 func car_mesh(col: Color, big: bool, police: bool, taxi: bool) -> ArrayMesh:
-	var key := col.to_html() + str(big) + str(police) + str(taxi)
+	var key = col.to_html() + str(big) + str(police) + str(taxi)
 	if geo_cache.has(key):
 		return geo_cache[key]
-	var L := 4.5 if big else 4.2
-	var Wd := 1.95 if big else 1.82
-	var y0 := 0.32
-	var hb := 0.85 if big else 0.62
-	var top := y0 + hb
-	var ch := 0.72 if big else 0.58
-	var sts := {}
-	var get_st := func(k: String) -> SurfaceTool:
+	var L = 4.5 if big else 4.2
+	var Wd = 1.95 if big else 1.82
+	var y0 = 0.32
+	var hb = 0.85 if big else 0.62
+	var top = y0 + hb
+	var ch = 0.72 if big else 0.58
+	var sts = {}
+	var get_st = func(k: String) -> SurfaceTool:
 		if not sts.has(k):
-			var s := SurfaceTool.new()
+			var s = SurfaceTool.new()
 			s.begin(Mesh.PRIMITIVE_TRIANGLES)
 			sts[k] = s
 		return sts[k]
-	var box := func(k: String, c: Vector3, sz: Vector3):
-		var bm := BoxMesh.new()
+	var box = func(k: String, c: Vector3, sz: Vector3):
+		var bm = BoxMesh.new()
 		bm.size = sz
 		(get_st.call(k) as SurfaceTool).append_from(bm, 0, Transform3D(Basis(), c))
 	# gövde: alt + kaput/bagaj eğimleri
@@ -134,47 +134,47 @@ func car_mesh(col: Color, big: bool, police: bool, taxi: bool) -> ArrayMesh:
 	box.call("dark", Vector3(0, y0 - 0.02, 0), Vector3(Wd + 0.02, 0.14, L - 0.5))
 	# kabin (yamuk prizma)
 	var gst: SurfaceTool = get_st.call("glass")
-	var z0 := -L * 0.30
-	var z1 := L * 0.16
+	var z0 = -L * 0.30
+	var z1 = L * 0.16
 	if big:
 		z0 = -L * 0.42
 		z1 = L * 0.22
-	var bx := Wd * 0.5 - 0.07
-	var tx := Wd * 0.5 - 0.2
-	var tz0 := z0 + (0.1 if big else 0.25)
-	var tz1 := z1 - (0.2 if big else 0.45)
-	var y1 := top + ch
-	var B0 := Vector3(-bx, top, z0)
-	var B1 := Vector3(bx, top, z0)
-	var B2 := Vector3(bx, top, z1)
-	var B3 := Vector3(-bx, top, z1)
-	var T0 := Vector3(-tx, y1, tz0)
-	var T1 := Vector3(tx, y1, tz0)
-	var T2 := Vector3(tx, y1, tz1)
-	var T3 := Vector3(-tx, y1, tz1)
+	var bx = Wd * 0.5 - 0.07
+	var tx = Wd * 0.5 - 0.2
+	var tz0 = z0 + (0.1 if big else 0.25)
+	var tz1 = z1 - (0.2 if big else 0.45)
+	var y1 = top + ch
+	var B0 = Vector3(-bx, top, z0)
+	var B1 = Vector3(bx, top, z0)
+	var B2 = Vector3(bx, top, z1)
+	var B3 = Vector3(-bx, top, z1)
+	var T0 = Vector3(-tx, y1, tz0)
+	var T1 = Vector3(tx, y1, tz0)
+	var T2 = Vector3(tx, y1, tz1)
+	var T3 = Vector3(-tx, y1, tz1)
 	_quad(gst, B3, B2, T2, T3, Vector3(0, 0.5, 1))
 	_quad(gst, B0, B1, T1, T0, Vector3(0, 0.5, -1))
 	_quad(gst, B1, B2, T2, T1, Vector3(1, 0.3, 0))
 	_quad(gst, B0, B3, T3, T0, Vector3(-1, 0.3, 0))
 	var pst: SurfaceTool = get_st.call("paint")
 	_quad(pst, T0, T1, T2, T3, Vector3.UP)
-	var mz := (tz0 + tz1) * 0.5
+	var mz = (tz0 + tz1) * 0.5
 	_quad(pst, Vector3(bx + 0.005, top, mz - 0.06), Vector3(bx + 0.005, top, mz + 0.06), Vector3(tx + 0.005, y1, mz + 0.06), Vector3(tx + 0.005, y1, mz - 0.06), Vector3(1, 0.3, 0))
 	_quad(pst, Vector3(-bx - 0.005, top, mz - 0.06), Vector3(-bx - 0.005, top, mz + 0.06), Vector3(-tx - 0.005, y1, mz + 0.06), Vector3(-tx - 0.005, y1, mz - 0.06), Vector3(-1, 0.3, 0))
 	# tekerlekler
-	var wh := CylinderMesh.new()
+	var wh = CylinderMesh.new()
 	wh.top_radius = 0.33
 	wh.bottom_radius = 0.33
 	wh.height = 0.24
 	wh.radial_segments = 14
-	var rim := CylinderMesh.new()
+	var rim = CylinderMesh.new()
 	rim.top_radius = 0.2
 	rim.bottom_radius = 0.2
 	rim.height = 0.26
 	rim.radial_segments = 10
 	for sx in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:
-			var xf := Transform3D(Basis(Vector3.FORWARD, PI / 2), Vector3(sx * (Wd * 0.5 - 0.06), 0.33, sz * L * 0.31))
+			var xf = Transform3D(Basis(Vector3.FORWARD, PI / 2), Vector3(sx * (Wd * 0.5 - 0.06), 0.33, sz * L * 0.31))
 			(get_st.call("tire") as SurfaceTool).append_from(wh, 0, xf)
 			(get_st.call("rim") as SurfaceTool).append_from(rim, 0, xf)
 	# farlar
@@ -186,8 +186,8 @@ func car_mesh(col: Color, big: bool, police: bool, taxi: bool) -> ArrayMesh:
 		box.call("dark", Vector3(0, y1 + 0.05, (tz0 + tz1) * 0.5), Vector3(1.1, 0.1, 0.3))
 	if taxi:
 		box.call("taxi", Vector3(0, y1 + 0.13, (tz0 + tz1) * 0.5), Vector3(0.6, 0.22, 0.32))
-	var am := ArrayMesh.new()
-	var mats := {
+	var am = ArrayMesh.new()
+	var mats = {
 		"paint": _mat("paint" + col.to_html(), col, 0.28, 0.55, true),
 		"glass": _mat("glass", Color(0.04, 0.05, 0.07), 0.04, 0.6),
 		"dark": _mat("dark", Color(0.08, 0.08, 0.09), 0.6, 0.2),
@@ -208,8 +208,8 @@ func car_mesh(col: Color, big: bool, police: bool, taxi: bool) -> ArrayMesh:
 func _lightbar(parent: Node3D, y: float, z: float) -> Array:
 	var out: Array = []
 	for side in [-1.0, 1.0]:
-		var lm := MeshInstance3D.new()
-		var lb := BoxMesh.new()
+		var lm = MeshInstance3D.new()
+		var lb = BoxMesh.new()
 		lb.size = Vector3(0.48, 0.12, 0.26)
 		lm.mesh = lb
 		lm.material_override = M.lb_off_r if side < 0 else M.lb_off_b
@@ -220,7 +220,7 @@ func _lightbar(parent: Node3D, y: float, z: float) -> Array:
 
 # ---------------------------------------------------------------- araçlar
 func make_car(kind: String, p: Vector2, dir: int, col: Color = Color.WHITE) -> NCar:
-	var c := NCar.new()
+	var c = NCar.new()
 	c.kind = kind
 	c.pos = p
 	c.dir = dir
@@ -233,15 +233,15 @@ func make_car(kind: String, p: Vector2, dir: int, col: Color = Color.WHITE) -> N
 	else:
 		c.col = col
 	c.hl = absf(p.y - roundf(p.y / C.S) * C.S) > 6.0
-	var body := AnimatableBody3D.new()
+	var body = AnimatableBody3D.new()
 	body.sync_to_physics = false
-	var cs := CollisionShape3D.new()
-	var bs := BoxShape3D.new()
+	var cs = CollisionShape3D.new()
+	var bs = BoxShape3D.new()
 	bs.size = Vector3(1.85, 1.3, 4.3)
 	cs.shape = bs
 	cs.position.y = 0.75
 	body.add_child(cs)
-	var mi := MeshInstance3D.new()
+	var mi = MeshInstance3D.new()
 	mi.mesh = car_mesh(c.col, c.big, kind == "cop", c.col.r > 0.8 and c.col.g > 0.6 and c.col.b < 0.3)
 	body.add_child(mi)
 	if kind == "cop":
@@ -302,10 +302,10 @@ func _turn(c: NCar) -> void:
 	var nd = c.dir
 	if c.flee or c.backup:
 		var tg = M.player_pos() if c.flee else _target(c)
-		var best := -1e9
+		var best = -1e9
 		for d in opts:
 			var dv: Vector2 = C.DV[d]
-			var sc := 0.0
+			var sc = 0.0
 			if tg != null:
 				sc = (c.pos - (tg as Vector2)).dot(dv)
 			if c.backup:
@@ -328,7 +328,7 @@ func _turn(c: NCar) -> void:
 			c.pos.x = mk * C.S + (-3.5 if nd == 1 else 3.5)
 		else:
 			c.hl = randf() < 0.5
-			var off := _lane_off(mk, c)
+			var off = _lane_off(mk, c)
 			c.pos.y = mk * C.S + (off if nd == 0 else -off)
 		c.dir = nd
 		_upd_base(c)
@@ -336,7 +336,7 @@ func _turn(c: NCar) -> void:
 
 func _place(c: NCar) -> void:
 	var dv: Vector2 = C.DV[c.dir]
-	var rt := Vector2(-dv.y, dv.x)
+	var rt = Vector2(-dv.y, dv.x)
 	var pp = c.pos + rt * c.pull * 0.1
 	c.node.global_position = Vector3(pp.x, 0.0, pp.y)
 	c.node.rotation = Vector3(0.04 if c.wreck else 0.0, c.yaw, -0.03 if c.wreck else 0.0)
@@ -354,24 +354,24 @@ func upd_car(c: NCar, dt: float) -> void:
 		tv = 0.0
 	var pp: Vector2 = M.player_pos()
 	if not c.flee and not c.backup:
-		var ahead := 1e9
+		var ahead = 1e9
 		for o in cars:
 			if o == c:
 				continue
 			var r: Vector2 = o.pos - c.pos
-			var f := r.dot(dv)
+			var f = r.dot(dv)
 			if f <= 0 or f > ahead:
 				continue
 			if absf(r.x * dv.y - r.y * dv.x) < 1.6:
 				ahead = f
 		var pc: Vector2 = M.car_pos()
 		var r2 = pc - c.pos
-		var f2 := r2.dot(dv)
+		var f2 = r2.dot(dv)
 		if f2 > 0 and absf(r2.x * dv.y - r2.y * dv.x) < 2.0 and f2 < ahead:
 			ahead = f2
 		if M.mode == "foot":
 			var r3 = pp - c.pos
-			var f3 := r3.dot(dv)
+			var f3 = r3.dot(dv)
 			if f3 > 0 and absf(r3.x * dv.y - r3.y * dv.x) < 1.4 and f3 < ahead:
 				ahead = f3
 		if ahead < 5.5:
@@ -416,11 +416,11 @@ func remove_car(c: NCar) -> void:
 func spawn_car(kind: String, dmin: float = 60.0, dmax: float = 120.0) -> NCar:
 	var pp: Vector2 = M.player_pos()
 	for i in 12:
-		var ang := randf() * TAU
-		var d := randf_range(dmin, dmax)
-		var q := pp + Vector2(cos(ang), sin(ang)) * d
-		var kx := roundi(q.x / C.S)
-		var kz := roundi(q.y / C.S)
+		var ang = randf() * TAU
+		var d = randf_range(dmin, dmax)
+		var q = pp + Vector2(cos(ang), sin(ang)) * d
+		var kx = roundi(q.x / C.S)
+		var kz = roundi(q.y / C.S)
 		if absi(kx) > C.WB or absi(kz) > C.WB:
 			continue
 		var s: Vector2
@@ -430,11 +430,11 @@ func spawn_car(kind: String, dmin: float = 60.0, dmax: float = 120.0) -> NCar:
 			s = Vector2(kx * C.S + (-3.5 if dir == 1 else 3.5), q.y)
 		else:
 			dir = 0 if randf() < 0.5 else 2
-			var off := (3.2 if randf() < 0.5 else 9.0) if kz == 0 else 3.5
+			var off = (3.2 if randf() < 0.5 else 9.0) if kz == 0 else 3.5
 			s = Vector2(q.x, kz * C.S + (off if dir == 0 else -off))
 		if absf(s.x) > C.LIM - 6 or absf(s.y) > C.LIM - 6:
 			continue
-		var clash := false
+		var clash = false
 		for o in cars:
 			if (o as NCar).pos.distance_to(s) < 7.0:
 				clash = true
@@ -450,18 +450,18 @@ func _human() -> Node3D:
 	return human_scene.instantiate()
 
 func make_ped(kind: String, p: Vector2, col: Color = Color(0, 0, 0, 0)) -> NPed:
-	var e := NPed.new()
+	var e = NPed.new()
 	e.kind = kind
 	e.pos = p
 	e.col = col if col.a > 0 else Color.from_hsv(randf(), randf_range(0.3, 0.7), randf_range(0.35, 0.8))
-	var holder := Node3D.new()
-	var inst := _human()
+	var holder = Node3D.new()
+	var inst = _human()
 	holder.add_child(inst)
 	var a: AABB = M.aabb_of(inst, holder)
-	var sc := randf_range(1.68, 1.85) / maxf(a.size.y, 0.001)
+	var sc = randf_range(1.68, 1.85) / maxf(a.size.y, 0.001)
 	inst.scale = Vector3.ONE * sc
 	inst.position.y = -a.position.y * sc
-	var mat := StandardMaterial3D.new()
+	var mat = StandardMaterial3D.new()
 	mat.albedo_color = e.col
 	mat.roughness = 0.75
 	for mi in inst.find_children("*", "MeshInstance3D", true, false):
@@ -474,8 +474,8 @@ func make_ped(kind: String, p: Vector2, col: Color = Color(0, 0, 0, 0)) -> NPed:
 		e.anim.play("idle")
 		e.anim.seek(randf() * 1.5)
 	if kind == "suspect":
-		var mk := MeshInstance3D.new()
-		var cm := CylinderMesh.new()
+		var mk = MeshInstance3D.new()
+		var cm = CylinderMesh.new()
 		cm.top_radius = 0.0
 		cm.bottom_radius = 0.22
 		cm.height = 0.45
@@ -483,7 +483,7 @@ func make_ped(kind: String, p: Vector2, col: Color = Color(0, 0, 0, 0)) -> NPed:
 		mk.mesh = cm
 		mk.rotation.x = PI
 		mk.position.y = 2.35
-		var mm := StandardMaterial3D.new()
+		var mm = StandardMaterial3D.new()
 		mm.albedo_color = Color(1, 0.15, 0.1)
 		mm.emission_enabled = true
 		mm.emission = Color(1, 0.1, 0.05)
@@ -504,8 +504,8 @@ func _place_ped(e: NPed) -> void:
 
 func _walker_pos(e: NPed) -> Vector2:
 	var r = C.block_rect(e.bx, e.bz).grow(-1.4)
-	var w := r.size.x
-	var h := r.size.y
+	var w = r.size.x
+	var h = r.size.y
 	var s = fposmod(e.s, e.per)
 	if s < w:
 		return Vector2(r.position.x + s, r.position.y)
@@ -518,18 +518,18 @@ func _walker_pos(e: NPed) -> Vector2:
 func spawn_walker() -> void:
 	var pp: Vector2 = M.player_pos()
 	for i in 10:
-		var ang := randf() * TAU
-		var d := randf_range(30, 90)
-		var q := pp + Vector2(cos(ang), sin(ang)) * d
-		var bx := floori(q.x / C.S)
-		var bz := floori(q.y / C.S)
+		var ang = randf() * TAU
+		var d = randf_range(30, 90)
+		var q = pp + Vector2(cos(ang), sin(ang)) * d
+		var bx = floori(q.x / C.S)
+		var bz = floori(q.y / C.S)
 		if bx < -C.WB or bx >= C.WB or bz < -C.WB or bz >= C.WB:
 			continue
-		var e := make_ped("civ", q)
+		var e = make_ped("civ", q)
 		e.ai = "walk"
 		e.bx = bx
 		e.bz = bz
-		var r := C.block_rect(bx, bz).grow(-1.4)
+		var r = C.block_rect(bx, bz).grow(-1.4)
 		e.per = 2 * (r.size.x + r.size.y)
 		e.s = randf() * e.per
 		e.ds = 1.0 if randf() < 0.5 else -1.0
@@ -562,7 +562,7 @@ func upd_ped(e: NPed, dt: float) -> void:
 		"flee":
 			var pp: Vector2 = M.player_pos()
 			var away = e.pos - pp
-			var dl := maxf(away.length(), 0.01)
+			var dl = maxf(away.length(), 0.01)
 			e.stam -= dt
 			var spd = 5.6 if e.stam > 0 else 3.6
 			e.wa += (randf() - 0.5) * dt * 3.0
@@ -606,7 +606,7 @@ func clear_all() -> void:
 
 func traffic_mul() -> float:
 	var h: float = M.game.G["time"] / 60.0
-	var m := 1.0
+	var m = 1.0
 	if (h >= 7 and h < 9.5) or (h >= 17 and h < 19.5):
 		m = 1.7
 	elif h >= 22 or h < 6:
@@ -615,7 +615,7 @@ func traffic_mul() -> float:
 
 func ped_mul() -> float:
 	var h: float = M.game.G["time"] / 60.0
-	var m := 0.4 if (h >= 22 or h < 6) else (1.2 if (h >= 11 and h < 20) else 0.9)
+	var m = 0.4 if (h >= 22 or h < 6) else (1.2 if (h >= 11 and h < 20) else 0.9)
 	if M.weather == "rain":
 		m *= 0.5
 	return m
@@ -631,8 +631,8 @@ func update(dt: float) -> void:
 		for e in peds.duplicate():
 			if not e.keep and (e.pos.distance_to(pp) > 120.0 or (e.down and e.down_t <= 0)):
 				remove_ped(e)
-		var civ := 0
-		var cops := 0
+		var civ = 0
+		var cops = 0
 		for c in cars:
 			if c.kind == "civ" and not c.keep:
 				civ += 1
@@ -642,21 +642,21 @@ func update(dt: float) -> void:
 			spawn_car("civ")
 		if cops < 2:
 			spawn_car("cop", 90, 150)
-		var np := 0
+		var np = 0
 		for e in peds:
 			if e.kind == "civ" and not e.keep:
 				np += 1
 		if np < roundi(10 * ped_mul()):
 			spawn_walker()
 		if absf(pp.y) < 90 and randf() < 0.05:
-			var spd := 0
+			var spd = 0
 			for c in cars:
 				if c.speeder:
 					spd += 1
 			if spd < 2:
-				var dir := 0 if randf() < 0.5 else 2
-				var x := clampf(pp.x + (-1.0 if randf() < 0.5 else 1.0) * randf_range(80, 130), -C.LIM + 20, C.LIM - 20)
-				var c2 := make_car("civ", Vector2(x, 9.0 if dir == 0 else -9.0), dir)
+				var dir = 0 if randf() < 0.5 else 2
+				var x = clampf(pp.x + (-1.0 if randf() < 0.5 else 1.0) * randf_range(80, 130), -C.LIM + 20, C.LIM - 20)
+				var c2 = make_car("civ", Vector2(x, 9.0 if dir == 0 else -9.0), dir)
 				c2.speeder = true
 				c2.sbase = randf_range(39, 48)
 				_upd_base(c2)

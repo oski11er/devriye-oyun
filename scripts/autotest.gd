@@ -3,8 +3,8 @@ extends Node
 
 var M
 var g
-var dir := ""
-var ok_n := 0
+var dir = ""
+var ok_n = 0
 
 func run(main) -> void:
 	M = main
@@ -47,7 +47,7 @@ func _buttons(n: Node) -> Array:
 	return out
 
 func _btn_names() -> String:
-	var s := ""
+	var s = ""
 	for b in _buttons(M.ui.modal_box):
 		s += (b as Button).text.substr(0, 24) + " | "
 	return s
@@ -156,7 +156,7 @@ func _go() -> void:
 		await w(0.3)
 		step("trafik kontrolü")
 	# hız ihlali
-	var m := new_mission("speed")
+	var m = new_mission("speed")
 	tp((m["p"] as Vector2) + Vector2(-25, 3.2))
 	await w(1.0)
 	if m.get("car") != null:
