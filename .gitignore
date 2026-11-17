@@ -1,3 +1,5 @@
-node_modules/
-android/
-*.apk
+.godot/
+build/
+assets/tex/
+*.import
+!assets/models/*.import

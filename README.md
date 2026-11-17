@@ -1,21 +1,17 @@
-# 🚓 Devriye: Şehrin Nabzı
+# 🚓 Devriye: Şehrin Nabzı (native Android, Godot 4)
 
-3D açık dünya polis simülasyonu (Android). Three.js ile gerçek zamanlı 3D: gölgeler, gündüz/gece döngüsü, hava durumu, sektör bazlı şehir yükleme.
+Native Android 3D polis simülasyonu. WebView yok: Godot 4 motoru, Vulkan "Mobile" renderer.
 
-## Telefona kurulum
-1. Bu sayfada sağdaki **Releases** bölümünden en son sürümü aç.
-2. `Devriye.apk` dosyasına dokunup indir.
-3. Açılan uyarıda **"Bu kaynaktan yüklemeye izin ver"** seçeneğini aç ve **Yükle**'ye bas.
+- Fotogerçekçi PBR dokular ve HDRI gökyüzü (Poly Haven, CC0 — derleme sırasında indirilir)
+- Fizikli polis aracı (VehicleBody3D), PBR araç modeli: Khronos "CarConcept" (CC-BY 4.0)
+- Animasyonlu karakter: GDQuest "Mannequiny" (CC-BY 4.0, GDQuest and contributors)
+- 1. şahıs / 3. şahıs kamera, gece/gündüz, siren
+- Dokunmatik kontroller: ◀ ▶ direksiyon, GAZ, FREN, EL FRENİ; yaya modunda joystick; ekranı sürükleyerek kamera
 
-## Nasıl derleniyor
-`main` dalına her gönderimde GitHub Actions (`.github/workflows/build-apk.yml`) Capacitor ile Android projesini oluşturur, APK'yı derler ve yeni bir Release yayınlar.
+## Kurulum
+Releases bölümünden en son `Devriye.apk` dosyasını indir ve kur.
 
-## Dosyalar
-- `www/index.html` — oyunun tamamı (mantık + 3D motor)
-- `www/three.min.js` — Three.js r160
-- `tools/patch_android.py` — yatay ekran, tam ekran, ekranı açık tutma ayarları
+## Derleme
+`main` dalına her gönderimde `.github/workflows/build.yml` çalışır: dokuları indirir, oyun içi ekran görüntüleri alır (`ci-out` dalı), APK'yı derler ve Release yayınlar.
 
-## Kontroller
-- Sol joystick: sağ-sol direksiyon, yukarı gaz, aşağı fren/geri
-- Sağ butonlar: Etkileşim, Fren, El freni, Siren, Korna, Far, İn/Bin, Kamera (vücut kamerası), Takviye, Dosya, Telsiz, Görüş (takip / yukarıdan kamera)
-- Duraklat menüsünden grafik kalitesi: Yüksek / Orta / Düşük
+Önceki WebView sürümü `web/` klasöründe.

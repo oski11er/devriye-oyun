@@ -1,6 +1,0 @@
-{
-  "appId": "com.devriye.oyun",
-  "appName": "Devriye",
-  "webDir": "www",
-  "android": { "allowMixedContent": false, "backgroundColor": "#05080f" }
-}

@@ -1,0 +1,97 @@
+name: Derle (Godot -> Android APK)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.3"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Godot ve şablonları önbellekten al
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-v1
+
+      - name: Godot indir
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          unzip -q Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip && mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 godot && rm *.zip
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          unzip -q Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mv templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/ && rm -rf templates *.tpz
+
+      - name: Araçlar
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb mesa-vulkan-drivers libgl1-mesa-dri > /dev/null
+          echo "$HOME/godot" >> $GITHUB_PATH
+          mkdir -p logs
+
+      - name: Fotogerçekçi dokular ve HDRI (Poly Haven, CC0)
+        run: python3 tools/fetch_assets.py 2>&1 | tee logs/assets.txt
+
+      - name: Kaynakları içe aktar
+        run: |
+          godot --headless --path . --import 2>&1 | tail -n 60 > logs/import.txt || true
+          ls -R .godot/imported | head -n 5 >> logs/import.txt || true
+
+      - name: Oyun içi ekran görüntüleri
+        run: |
+          timeout 600 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver vulkan -- --shots 2>&1 | tail -n 150 > logs/shots_vulkan.txt || true
+          if [ ! -f shots/01_arac_3sahis.png ]; then
+            timeout 600 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 -- --shots 2>&1 | tail -n 150 > logs/shots_gl.txt || true
+          fi
+          ls -la shots >> logs/shots_vulkan.txt 2>&1 || true
+
+      - name: Android ayarları
+        run: |
+          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android -keystore /tmp/debug.keystore -storepass android -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
+          mkdir -p ~/.config/godot
+          for f in editor_settings-4.tres editor_settings-4.3.tres; do
+            printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/java_sdk_path = "%s"\nexport/android/debug_keystore = "/tmp/debug.keystore"\nexport/android/debug_keystore_user = "androiddebugkey"\nexport/android/debug_keystore_pass = "android"\n' "$ANDROID_HOME" "$JAVA_HOME" > ~/.config/godot/$f
+          done
+
+      - name: APK dışa aktar
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-debug "Android" build/Devriye.apk 2>&1 | tail -n 80 > logs/export.txt || true
+          ls -la build >> logs/export.txt
+
+      - name: Sonuçları ci-out dalına gönder
+        if: always()
+        run: |
+          mkdir -p /tmp/out && cp -r logs /tmp/out/ && cp -r shots /tmp/out/ 2>/dev/null || true
+          cp assets/tex/CREDITS.txt /tmp/out/ 2>/dev/null || true
+          cd /tmp/out && git init -q -b ci-out && git add -A
+          git -c user.name=ci -c user.email=ci@localhost commit -q -m "CI çıktısı ${{ github.run_number }}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" ci-out
+
+      - name: Release
+        if: hashFiles('build/Devriye.apk') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v2.0.${{ github.run_number }}"
+          gh release create "$TAG" build/Devriye.apk --title "Devriye 3D (native) $TAG" --notes "Godot 4 native Android sürümü. Devriye.apk dosyasını indirip kur." --latest
