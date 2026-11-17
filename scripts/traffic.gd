@@ -91,20 +91,49 @@ func _mat(key: String, c: Color, rough: float, metal: float, clear: bool = false
 	mat_cache[key] = m
 	return m
 
-func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, out: Vector3) -> void:
+func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, n: Vector3, col: Color) -> void:
+	# Godot ön yüz: saat yönü → (b-a)x(c-a) normalin tersi olmalı
+	if (b - a).cross(c - a).dot(n) > 0.0:
+		var t = b
+		b = c
+		c = t
+	for v in [a, b, c]:
+		st.set_color(col)
+		st.set_normal(n)
+		st.set_uv(Vector2(v.x, v.y))
+		st.add_vertex(v)
+
+func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, out: Vector3, col: Color = Color.WHITE) -> void:
 	var n = (b - a).cross(c - a).normalized()
 	if n.dot(out) < 0:
-		var t = b
-		b = d
-		d = t
 		n = -n
-	st.set_normal(n)
-	st.add_vertex(a)
-	st.add_vertex(b)
-	st.add_vertex(c)
-	st.add_vertex(a)
-	st.add_vertex(c)
-	st.add_vertex(d)
+	_tri(st, a, b, c, n, col)
+	_tri(st, a, c, d, n, col)
+
+func _vbox(st: SurfaceTool, c: Vector3, sz: Vector3, col: Color) -> void:
+	var h = sz * 0.5
+	var P = [c + Vector3(-h.x, -h.y, -h.z), c + Vector3(h.x, -h.y, -h.z), c + Vector3(h.x, h.y, -h.z), c + Vector3(-h.x, h.y, -h.z), c + Vector3(-h.x, -h.y, h.z), c + Vector3(h.x, -h.y, h.z), c + Vector3(h.x, h.y, h.z), c + Vector3(-h.x, h.y, h.z)]
+	_quad(st, P[0], P[1], P[2], P[3], Vector3(0, 0, -1), col)
+	_quad(st, P[4], P[5], P[6], P[7], Vector3(0, 0, 1), col)
+	_quad(st, P[0], P[4], P[7], P[3], Vector3(-1, 0, 0), col)
+	_quad(st, P[1], P[5], P[6], P[2], Vector3(1, 0, 0), col)
+	_quad(st, P[3], P[2], P[6], P[7], Vector3(0, 1, 0), col)
+	_quad(st, P[0], P[1], P[5], P[4], Vector3(0, -1, 0), col)
+
+func _vwheel(st: SurfaceTool, c: Vector3, r: float, w: float, col: Color, hub: Color) -> void:
+	var seg = 12
+	for i in seg:
+		var a0 = TAU * i / seg
+		var a1 = TAU * (i + 1) / seg
+		var p0 = Vector3(0, sin(a0) * r, cos(a0) * r)
+		var p1 = Vector3(0, sin(a1) * r, cos(a1) * r)
+		var n = Vector3(0, sin((a0 + a1) * 0.5), cos((a0 + a1) * 0.5))
+		var hw = Vector3(w * 0.5, 0, 0)
+		_quad(st, c + p0 - hw, c + p1 - hw, c + p1 + hw, c + p0 + hw, n, col)
+		for sx in [-1.0, 1.0]:
+			var side = Vector3(sx * w * 0.5, 0, 0)
+			_tri(st, c + side, c + side + p0 * (0.62 if true else 1.0), c + side + p1 * 0.62, Vector3(sx, 0, 0), hub)
+			_quad(st, c + side + p0 * 0.62, c + side + p1 * 0.62, c + side + p1, c + side + p0, Vector3(sx, 0, 0), col)
 
 func car_mesh(col: Color, big: bool, police: bool, taxi: bool) -> ArrayMesh:
 	var key = col.to_html() + str(big) + str(police) + str(taxi)
@@ -116,29 +145,19 @@ func car_mesh(col: Color, big: bool, police: bool, taxi: bool) -> ArrayMesh:
 	var hb = 0.85 if big else 0.62
 	var top = y0 + hb
 	var ch = 0.72 if big else 0.58
-	var sts = {}
-	var get_st = func(k: String) -> SurfaceTool:
-		if not sts.has(k):
-			var s = SurfaceTool.new()
-			s.begin(Mesh.PRIMITIVE_TRIANGLES)
-			sts[k] = s
-		return sts[k]
-	var box = func(k: String, c: Vector3, sz: Vector3):
-		var bm = BoxMesh.new()
-		bm.size = sz
-		(get_st.call(k) as SurfaceTool).append_from(bm, 0, Transform3D(Basis(), c))
-	# gövde: alt + kaput/bagaj eğimleri
-	box.call("paint", Vector3(0, y0 + hb * 0.5, 0), Vector3(Wd, hb, L))
-	box.call("dark", Vector3(0, y0 + 0.05, L * 0.5 + 0.04), Vector3(Wd - 0.1, 0.28, 0.12))
-	box.call("dark", Vector3(0, y0 + 0.05, -L * 0.5 - 0.04), Vector3(Wd - 0.1, 0.28, 0.12))
-	box.call("dark", Vector3(0, y0 - 0.02, 0), Vector3(Wd + 0.02, 0.14, L - 0.5))
-	# kabin (yamuk prizma)
-	var gst: SurfaceTool = get_st.call("glass")
-	var z0 = -L * 0.30
-	var z1 = L * 0.16
-	if big:
-		z0 = -L * 0.42
-		z1 = L * 0.22
+	var body = SurfaceTool.new()
+	body.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var gl = SurfaceTool.new()
+	gl.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var lt = SurfaceTool.new()
+	lt.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var dark = Color(0.08, 0.08, 0.09)
+	_vbox(body, Vector3(0, y0 + hb * 0.5, 0), Vector3(Wd, hb, L), col)
+	_vbox(body, Vector3(0, y0 + 0.05, L * 0.5 + 0.04), Vector3(Wd - 0.1, 0.28, 0.12), dark)
+	_vbox(body, Vector3(0, y0 + 0.05, -L * 0.5 - 0.04), Vector3(Wd - 0.1, 0.28, 0.12), dark)
+	_vbox(body, Vector3(0, y0 - 0.02, 0), Vector3(Wd + 0.02, 0.14, L - 0.5), dark)
+	var z0 = -L * (0.42 if big else 0.30)
+	var z1 = L * (0.22 if big else 0.16)
 	var bx = Wd * 0.5 - 0.07
 	var tx = Wd * 0.5 - 0.2
 	var tz0 = z0 + (0.1 if big else 0.25)
@@ -152,56 +171,35 @@ func car_mesh(col: Color, big: bool, police: bool, taxi: bool) -> ArrayMesh:
 	var T1 = Vector3(tx, y1, tz0)
 	var T2 = Vector3(tx, y1, tz1)
 	var T3 = Vector3(-tx, y1, tz1)
-	_quad(gst, B3, B2, T2, T3, Vector3(0, 0.5, 1))
-	_quad(gst, B0, B1, T1, T0, Vector3(0, 0.5, -1))
-	_quad(gst, B1, B2, T2, T1, Vector3(1, 0.3, 0))
-	_quad(gst, B0, B3, T3, T0, Vector3(-1, 0.3, 0))
-	var pst: SurfaceTool = get_st.call("paint")
-	_quad(pst, T0, T1, T2, T3, Vector3.UP)
+	_quad(gl, B3, B2, T2, T3, Vector3(0, 0.5, 1))
+	_quad(gl, B0, B1, T1, T0, Vector3(0, 0.5, -1))
+	_quad(gl, B1, B2, T2, T1, Vector3(1, 0.3, 0))
+	_quad(gl, B0, B3, T3, T0, Vector3(-1, 0.3, 0))
+	_quad(body, T0, T1, T2, T3, Vector3.UP, col)
 	var mz = (tz0 + tz1) * 0.5
-	_quad(pst, Vector3(bx + 0.005, top, mz - 0.06), Vector3(bx + 0.005, top, mz + 0.06), Vector3(tx + 0.005, y1, mz + 0.06), Vector3(tx + 0.005, y1, mz - 0.06), Vector3(1, 0.3, 0))
-	_quad(pst, Vector3(-bx - 0.005, top, mz - 0.06), Vector3(-bx - 0.005, top, mz + 0.06), Vector3(-tx - 0.005, y1, mz + 0.06), Vector3(-tx - 0.005, y1, mz - 0.06), Vector3(-1, 0.3, 0))
-	# tekerlekler
-	var wh = CylinderMesh.new()
-	wh.top_radius = 0.33
-	wh.bottom_radius = 0.33
-	wh.height = 0.24
-	wh.radial_segments = 14
-	var rim = CylinderMesh.new()
-	rim.top_radius = 0.2
-	rim.bottom_radius = 0.2
-	rim.height = 0.26
-	rim.radial_segments = 10
+	_quad(body, Vector3(bx + 0.005, top, mz - 0.06), Vector3(bx + 0.005, top, mz + 0.06), Vector3(tx + 0.005, y1, mz + 0.06), Vector3(tx + 0.005, y1, mz - 0.06), Vector3(1, 0.3, 0), col)
+	_quad(body, Vector3(-bx - 0.005, top, mz - 0.06), Vector3(-bx - 0.005, top, mz + 0.06), Vector3(-tx - 0.005, y1, mz + 0.06), Vector3(-tx - 0.005, y1, mz - 0.06), Vector3(-1, 0.3, 0), col)
 	for sx in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:
-			var xf = Transform3D(Basis(Vector3.FORWARD, PI / 2), Vector3(sx * (Wd * 0.5 - 0.06), 0.33, sz * L * 0.31))
-			(get_st.call("tire") as SurfaceTool).append_from(wh, 0, xf)
-			(get_st.call("rim") as SurfaceTool).append_from(rim, 0, xf)
-	# farlar
-	for sx in [-1.0, 1.0]:
-		box.call("head", Vector3(sx * (Wd * 0.5 - 0.3), y0 + 0.4, L * 0.5 + 0.02), Vector3(0.38, 0.15, 0.05))
-		box.call("tail", Vector3(sx * (Wd * 0.5 - 0.28), y0 + 0.45, -L * 0.5 - 0.02), Vector3(0.36, 0.14, 0.05))
+			_vwheel(body, Vector3(sx * (Wd * 0.5 - 0.06), 0.33, sz * L * 0.31), 0.33, 0.24, Color(0.05, 0.05, 0.05), Color(0.7, 0.72, 0.75))
+		_vbox(lt, Vector3(sx * (Wd * 0.5 - 0.3), y0 + 0.4, L * 0.5 + 0.02), Vector3(0.38, 0.15, 0.05), Color(1, 0.96, 0.85))
+		_vbox(lt, Vector3(sx * (Wd * 0.5 - 0.28), y0 + 0.45, -L * 0.5 - 0.02), Vector3(0.36, 0.14, 0.05), Color(1, 0.1, 0.08))
 	if police:
-		box.call("navy", Vector3(0, y0 + 0.36, -0.05), Vector3(Wd + 0.02, 0.32, L * 0.42))
-		box.call("dark", Vector3(0, y1 + 0.05, (tz0 + tz1) * 0.5), Vector3(1.1, 0.1, 0.3))
+		_vbox(body, Vector3(0, y0 + 0.36, -0.05), Vector3(Wd + 0.02, 0.32, L * 0.42), Color(0.07, 0.17, 0.45))
+		_vbox(body, Vector3(0, y1 + 0.05, mz), Vector3(1.1, 0.1, 0.3), dark)
 	if taxi:
-		box.call("taxi", Vector3(0, y1 + 0.13, (tz0 + tz1) * 0.5), Vector3(0.6, 0.22, 0.32))
+		_vbox(lt, Vector3(0, y1 + 0.13, mz), Vector3(0.6, 0.22, 0.32), Color(1, 0.85, 0.2))
 	var am = ArrayMesh.new()
-	var mats = {
-		"paint": _mat("paint" + col.to_html(), col, 0.28, 0.55, true),
-		"glass": _mat("glass", Color(0.04, 0.05, 0.07), 0.04, 0.6),
-		"dark": _mat("dark", Color(0.08, 0.08, 0.09), 0.6, 0.2),
-		"tire": _mat("tire", Color(0.05, 0.05, 0.05), 0.85, 0.0),
-		"rim": _mat("rim", Color(0.7, 0.72, 0.75), 0.25, 0.9),
-		"head": _mat("head", Color(1, 0.96, 0.85), 0.2, 0.0, false, 1.5),
-		"tail": _mat("tail", Color(0.9, 0.05, 0.05), 0.3, 0.0, false, 1.2),
-		"navy": _mat("navyc", Color(0.07, 0.17, 0.45), 0.3, 0.4, true),
-		"taxi": _mat("taxi", Color(1, 0.85, 0.2), 0.4, 0.0, false, 0.6),
-	}
-	for k in sts.keys():
-		var s: SurfaceTool = sts[k]
-		s.commit(am)
-		am.surface_set_material(am.get_surface_count() - 1, mats[k])
+	body.commit(am)
+	am.surface_set_material(0, _mat("cbody", Color.WHITE, 0.32, 0.45, true))
+	(am.surface_get_material(0) as StandardMaterial3D).vertex_color_use_as_albedo = true
+	gl.commit(am)
+	am.surface_set_material(1, _mat("glass", Color(0.04, 0.05, 0.07), 0.04, 0.6))
+	lt.commit(am)
+	var lm = _mat("clights", Color.WHITE, 0.3, 0.0)
+	lm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	lm.vertex_color_use_as_albedo = true
+	am.surface_set_material(2, lm)
 	geo_cache[key] = am
 	return am
 
