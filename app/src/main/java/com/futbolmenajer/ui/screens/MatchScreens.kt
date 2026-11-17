@@ -23,6 +23,7 @@ import com.futbolmenajer.data.model.*
 import com.futbolmenajer.engine.*
 import com.futbolmenajer.ui.*
 import kotlinx.coroutines.delay
+import androidx.compose.runtime.withFrameNanos
 
 /* ======================= MAÇ ÖNÜ ======================= */
 
@@ -86,107 +87,130 @@ fun LiveMatchScreen(vm: GameViewModel) {
     var tab by remember { mutableIntStateOf(0) }
     var subOut by remember { mutableStateOf<Int?>(null) }
     val userSide = if (sim.home.isUser) sim.home else sim.away
+    val anim = remember(sim) { PitchAnimator(sim) }
+    // kare animasyonu
+    LaunchedEffect(anim) {
+        var last = 0L
+        while (true) {
+            withFrameNanos { now ->
+                val dt = if (last == 0L) 0.016f else ((now - last) / 1e9f)
+                last = now
+                anim.update(dt.coerceAtMost(0.05f))
+            }
+        }
+    }
+    // simülasyon adımları
     LaunchedEffect(running, speed) {
         while (running && !sim.finished) {
-            delay(when (speed) { 1 -> 650L; 2 -> 250L; 3 -> 70L; else -> 10L })
+            delay(when (speed) { 1 -> 1100L; 2 -> 450L; 3 -> 140L; else -> 15L })
             val evs = sim.step()
+            anim.onStep(evs)
             tick++
-            // önemli olaylarda yavaş modda kısa duraklama
-            if (speed == 1 && evs.any { it.type == EventType.GOAL || it.type == EventType.PENALTY_GOAL || it.type == EventType.RED }) delay(1200)
+            if (speed <= 2 && evs.any { it.type == EventType.GOAL || it.type == EventType.PENALTY_GOAL }) delay(2600)
+            else if (speed == 1 && evs.any { it.type == EventType.RED || it.type == EventType.SAVE || it.type == EventType.CHANCE }) delay(900)
             if (sim.phase == MatchPhase.HALF_TIME && speed < 4) { running = false }
         }
     }
-    val t = tick // yeniden çizim
-    Column(Modifier.fillMaxSize()) {
-        // skor tabelası
-        Column(Modifier.fillMaxWidth().background(PitchDark).padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(sim.home.name, Modifier.weight(1f), textAlign = TextAlign.End, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
-                Text("  ${sim.homeGoals} - ${sim.awayGoals}  ", fontSize = 30.sp, fontWeight = FontWeight.Black, color = Gold)
-                Text(sim.away.name, Modifier.weight(1f), fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+    val t = tick
+    Row(Modifier.fillMaxSize()) {
+        // SOL: saha
+        Column(Modifier.weight(1.55f).fillMaxHeight()) {
+            Row(Modifier.fillMaxWidth().background(PitchDark).padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                ClubDot(sim.home.clubColor, 14)
+                Text(" ${sim.home.name}", Modifier.weight(1f), fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+                Text(" ${sim.homeGoals} - ${sim.awayGoals} ", fontSize = 24.sp, fontWeight = FontWeight.Black, color = Gold)
+                Text("${sim.away.name} ", Modifier.weight(1f), textAlign = TextAlign.End, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+                ClubDot(sim.away.clubColor, 14)
             }
             val phaseTxt = when (sim.phase) {
                 MatchPhase.HALF_TIME -> "Devre arası"; MatchPhase.FINISHED -> "Maç sonu"; MatchPhase.ET_BREAK -> "Uzatma öncesi"
                 MatchPhase.PENALTIES -> "Penaltılar"; else -> sim.minuteLabel()
             }
-            Text(phaseTxt + (sim.homePens?.let { " · Pen: $it-${sim.awayPens}" } ?: ""), color = Color.White)
-            Text("Topa sahip olma %${sim.possessionHome()} - %${100 - sim.possessionHome()} · Şut ${sim.home.stats.shots}-${sim.away.stats.shots}", color = Muted, fontSize = 11.sp)
-        }
-        // kontroller
-        Row(Modifier.fillMaxWidth().padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (!sim.finished) {
-                Button(onClick = { running = !running }, contentPadding = PaddingValues(horizontal = 10.dp)) { Text(if (running) "⏸ Durdur" else "▶ Devam") }
-                Spacer(Modifier.width(6.dp))
-                ChipRow(listOf(1, 2, 3, 4), speed, { listOf("1x", "2x", "4x", "⚡")[it - 1] }) { speed = it }
-            } else {
-                Button(onClick = { vm.finishLive() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Color.Black)) { Text("MAÇI TAMAMLA →", fontWeight = FontWeight.Bold) }
+            Text(phaseTxt + (sim.homePens?.let { " · Pen: $it-${sim.awayPens}" } ?: "") + "   ·   Topa sahip olma %${sim.possessionHome()}-%${100 - sim.possessionHome()}   ·   Şut ${sim.home.stats.shots}-${sim.away.stats.shots}",
+                color = Muted, fontSize = 11.sp, modifier = Modifier.fillMaxWidth().background(Color(0xFF0D2A20)).padding(horizontal = 10.dp, vertical = 2.dp))
+            Box(Modifier.weight(1f).fillMaxWidth()) { MatchPitch(anim) }
+            Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (!sim.finished) {
+                    Button(onClick = { running = !running }, contentPadding = PaddingValues(horizontal = 10.dp)) { Text(if (running) "⏸ Durdur" else "▶ Devam") }
+                    Spacer(Modifier.width(6.dp))
+                    ChipRow(listOf(1, 2, 3, 4), speed, { listOf("1x", "2x", "4x", "⚡")[it - 1] }) { speed = it }
+                } else {
+                    Button(onClick = { vm.finishLive() }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Color.Black)) { Text("MAÇI TAMAMLA →", fontWeight = FontWeight.Bold) }
+                }
             }
         }
-        TabRow(selectedTabIndex = tab, containerColor = Bg) {
-            listOf("Anlatım", "İstatistik", "Kadro & Değişiklik", "Taktik").forEachIndexed { i, s -> Tab(selected = tab == i, onClick = { tab = i }, text = { Text(s, fontSize = 11.sp) }) }
-        }
-        when (tab) {
-            0 -> {
-                val list = sim.events.asReversed()
-                LazyColumn(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-                    items(list.size) { i ->
-                        val e = list[i]
-                        val icon = when (e.type) {
-                            EventType.GOAL, EventType.PENALTY_GOAL -> "⚽"; EventType.YELLOW -> "🟨"; EventType.RED, EventType.SECOND_YELLOW -> "🟥"
-                            EventType.INJURY -> "🚑"; EventType.SUB -> "🔄"; EventType.VAR -> "📺"; EventType.SAVE -> "🧤"; EventType.PENALTY_MISS -> "❌"
-                            EventType.GK_8_SECONDS -> "⏱"; EventType.CHANCE -> "💨"; EventType.SHOOTOUT -> "🎯"; else -> "•"
+        // SAĞ: panel
+        Column(Modifier.weight(1f).fillMaxHeight()) {
+            TabRow(selectedTabIndex = tab, containerColor = Bg) {
+                listOf("Anlatım", "İstatistik", "Kadro", "Taktik").forEachIndexed { i, s -> Tab(selected = tab == i, onClick = { tab = i }, text = { Text(s, fontSize = 11.sp) }) }
+            }
+            when (tab) {
+                0 -> {
+                    val list = sim.events.asReversed()
+                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 6.dp)) {
+                        items(list.size) { i ->
+                            val e = list[i]
+                            val icon = when (e.type) {
+                                EventType.GOAL, EventType.PENALTY_GOAL -> "⚽"; EventType.YELLOW -> "🟨"; EventType.RED, EventType.SECOND_YELLOW -> "🟥"
+                                EventType.INJURY -> "🚑"; EventType.SUB -> "🔄"; EventType.VAR -> "📺"; EventType.SAVE -> "🧤"; EventType.PENALTY_MISS -> "❌"
+                                EventType.GK_8_SECONDS -> "⏱"; EventType.CHANCE -> "💨"; EventType.SHOOTOUT -> "🎯"; else -> "•"
+                            }
+                            val isGoal = e.type == EventType.GOAL || e.type == EventType.PENALTY_GOAL
+                            Row(Modifier.fillMaxWidth().background(if (isGoal) Color(0xFF214A35) else Color.Transparent).padding(vertical = 4.dp)) {
+                                Text(if (e.added > 0) "${e.minute}+${e.added}'" else "${e.minute}'", Modifier.width(42.dp), color = Muted, fontSize = 11.sp)
+                                Text(icon, Modifier.width(22.dp))
+                                Text(e.text, fontSize = 12.sp, fontWeight = if (isGoal) FontWeight.Bold else FontWeight.Normal)
+                            }
                         }
-                        val isGoal = e.type == EventType.GOAL || e.type == EventType.PENALTY_GOAL
-                        Row(Modifier.fillMaxWidth().background(if (isGoal) Color(0xFF214A35) else Color.Transparent).padding(vertical = 5.dp)) {
-                            Text(if (e.added > 0) "${e.minute}+${e.added}'" else "${e.minute}'", Modifier.width(46.dp), color = Muted, fontSize = 12.sp)
-                            Text(icon, Modifier.width(26.dp))
-                            Text(e.text, fontSize = 13.sp, fontWeight = if (isGoal) FontWeight.Bold else FontWeight.Normal)
+                    }
+                }
+                1 -> Column(Modifier.verticalScroll(rememberScrollState())) { StatsTable(sim.home.name, sim.away.name, sim.home.stats, sim.away.stats, sim.possessionHome()) }
+                2 -> LazyColumn(Modifier.fillMaxSize().padding(6.dp)) {
+                    item { Text("Değişiklik: ${userSide.subsUsed}/5 · Pencere: ${userSide.subWindowsUsed}/3 (devre arası sayılmaz)", color = Muted, fontSize = 11.sp) }
+                    item { SectionTitle("Sahada (çıkarmak için dokun)") }
+                    items(userSide.lineup.indices.toList()) { i ->
+                        val id = userSide.lineup[i]
+                        val p = gs.players[id]
+                        if (id >= 0 && p != null) Row(Modifier.fillMaxWidth().clickable { subOut = id }.background(if (subOut == id) Color(0xFF214A35) else Color.Transparent).padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Avatar(p.id, p.nationality, p.age(gs.season), userSide.clubColor, userSide.secondColor, 28)
+                            Spacer(Modifier.width(4.dp))
+                            PosBadge(userSide.slots.getOrElse(i) { Position.CM })
+                            Text("  ${p.shortName}", Modifier.weight(1f), fontSize = 13.sp, maxLines = 1)
+                            if (id in userSide.yellow) Text("🟨 ")
+                            if (id in userSide.injured) Text("🚑 ")
+                            Text("%${(sim.fitness[id] ?: 100.0).toInt()}", color = Muted, fontSize = 11.sp)
+                            Text("  ${String.format("%.1f", sim.ratings[id] ?: 6.0)}", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
+                    item { SectionTitle(if (subOut != null) "Yedekler (oyuna almak için dokun)" else "Yedekler") }
+                    items(userSide.bench.toList()) { id ->
+                        val p = gs.players[id] ?: return@items
+                        Row(Modifier.fillMaxWidth().clickable(enabled = subOut != null) {
+                            val err = sim.makeSub(userSide, subOut!!, id)
+                            if (err != null) vm.say(err) else anim.rebuild()
+                            subOut = null; tick++
+                        }.padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Avatar(p.id, p.nationality, p.age(gs.season), userSide.clubColor, userSide.secondColor, 28)
+                            Spacer(Modifier.width(4.dp))
+                            PosBadge(p.position); Text("  ${p.shortName}", Modifier.weight(1f), fontSize = 13.sp); RatingBox(p.overall, 26)
                         }
                     }
                 }
-            }
-            1 -> StatsTable(sim.home.name, sim.away.name, sim.home.stats, sim.away.stats, sim.possessionHome())
-            2 -> LazyColumn(Modifier.fillMaxSize().padding(8.dp)) {
-                item { Text("Değişiklik: ${userSide.subsUsed}/5 · Pencere: ${userSide.subWindowsUsed}/3 (devre arası sayılmaz)", color = Muted, fontSize = 12.sp) }
-                item { SectionTitle("Sahada (çıkarmak için dokun)") }
-                items(userSide.lineup.indices.toList()) { i ->
-                    val id = userSide.lineup[i]
-                    val p = gs.players[id]
-                    if (id >= 0 && p != null) Row(Modifier.fillMaxWidth().clickable { subOut = id }.background(if (subOut == id) Color(0xFF214A35) else Color.Transparent).padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        PosBadge(userSide.slots.getOrElse(i) { Position.CM })
-                        Text("  ${p.shortName}", Modifier.weight(1f))
-                        if (id in userSide.yellow) Text("🟨 ")
-                        if (id in userSide.injured) Text("🚑 ")
-                        Text("%${(sim.fitness[id] ?: 100.0).toInt()}", color = Muted, fontSize = 12.sp)
-                        Text("  ${String.format("%.1f", sim.ratings[id] ?: 6.0)}", fontWeight = FontWeight.Bold)
-                    }
+                else -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(6.dp)) {
+                    val tac = userSide.tactic
+                    Text("Oyun anlayışı", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    ChipRow(Mentality.values().toList(), tac.mentality, { it.tr }) { sim.changeTactic(userSide, tac.copy(mentality = it)); tick++ }
+                    Text("Tempo", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    ChipRow(Tempo.values().toList(), tac.tempo, { it.tr }) { sim.changeTactic(userSide, tac.copy(tempo = it)); tick++ }
+                    Text("Pres", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    ChipRow(PressIntensity.values().toList(), tac.press, { it.tr }) { sim.changeTactic(userSide, tac.copy(press = it)); tick++ }
+                    Text("Pas stili", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    ChipRow(PassingStyle.values().toList(), tac.passing, { it.tr }) { sim.changeTactic(userSide, tac.copy(passing = it)); tick++ }
+                    Text("Savunma hattı", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    ChipRow(DefensiveLine.values().toList(), tac.defLine, { it.tr }) { sim.changeTactic(userSide, tac.copy(defLine = it)); tick++ }
+                    Text("Diziliş", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    ChipRow(Formation.values().toList(), tac.formation, { it.tr }) { sim.changeTactic(userSide, tac.copy(formation = it)); anim.rebuild(); tick++ }
                 }
-                item { SectionTitle(if (subOut != null) "Yedekler (oyuna almak için dokun)" else "Yedekler") }
-                items(userSide.bench.toList()) { id ->
-                    val p = gs.players[id] ?: return@items
-                    Row(Modifier.fillMaxWidth().clickable(enabled = subOut != null) {
-                        val err = sim.makeSub(userSide, subOut!!, id)
-                        if (err != null) vm.say(err)
-                        subOut = null; tick++
-                    }.padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        PosBadge(p.position); Text("  ${p.shortName}", Modifier.weight(1f)); RatingBox(p.overall, 28)
-                    }
-                }
-            }
-            else -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(8.dp)) {
-                val tac = userSide.tactic
-                Text("Oyun anlayışı", fontWeight = FontWeight.Bold)
-                ChipRow(Mentality.values().toList(), tac.mentality, { it.tr }) { sim.changeTactic(userSide, tac.copy(mentality = it)); tick++ }
-                Text("Tempo", fontWeight = FontWeight.Bold)
-                ChipRow(Tempo.values().toList(), tac.tempo, { it.tr }) { sim.changeTactic(userSide, tac.copy(tempo = it)); tick++ }
-                Text("Pres", fontWeight = FontWeight.Bold)
-                ChipRow(PressIntensity.values().toList(), tac.press, { it.tr }) { sim.changeTactic(userSide, tac.copy(press = it)); tick++ }
-                Text("Pas stili", fontWeight = FontWeight.Bold)
-                ChipRow(PassingStyle.values().toList(), tac.passing, { it.tr }) { sim.changeTactic(userSide, tac.copy(passing = it)); tick++ }
-                Text("Savunma hattı", fontWeight = FontWeight.Bold)
-                ChipRow(DefensiveLine.values().toList(), tac.defLine, { it.tr }) { sim.changeTactic(userSide, tac.copy(defLine = it)); tick++ }
-                Text("Diziliş", fontWeight = FontWeight.Bold)
-                ChipRow(Formation.values().toList(), tac.formation, { it.tr }) { sim.changeTactic(userSide, tac.copy(formation = it)); tick++ }
             }
         }
     }

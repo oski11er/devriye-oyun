@@ -32,11 +32,11 @@ fun MenuScreen(vm: GameViewModel) {
     var showLoad by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(PitchDark, Bg)))) {
-        Column(Modifier.fillMaxSize().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text("⚽", fontSize = 72.sp)
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 120.dp, vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Text("⚽", fontSize = 40.sp)
             Text("FUTBOL MENAJER", fontSize = 32.sp, fontWeight = FontWeight.Black, color = Color.White)
-            Text("2026-27 Sezonu", color = Gold, fontSize = 16.sp)
-            Spacer(Modifier.height(40.dp))
+            Text("2026-27 Sezonu · Güncel kadrolar", color = Gold, fontSize = 16.sp)
+            Spacer(Modifier.height(16.dp))
             Button(onClick = { vm.newWorld() }, modifier = Modifier.fillMaxWidth().height(56.dp)) { Text("YENİ KARİYER", fontWeight = FontWeight.Bold, fontSize = 17.sp) }
             Spacer(Modifier.height(12.dp))
             val anySave = (1..SaveManager.SLOTS).mapNotNull { vm.saves.meta(it) }.maxByOrNull { it.savedAt }

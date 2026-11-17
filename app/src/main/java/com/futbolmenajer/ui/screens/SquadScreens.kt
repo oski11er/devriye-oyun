@@ -209,6 +209,8 @@ fun PlayerScreen(vm: GameViewModel) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
         InfoCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                Avatar(p.id, p.nationality, p.age(gs.season), club?.primaryColor ?: 0xFF455A64, club?.secondaryColor ?: 0xFFFFFFFF, 96)
+                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(p.fullName, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     Text("${p.position.tr}${if (p.secondary.isNotEmpty()) " (" + p.secondary.joinToString { it.tr } + ")" else ""} · ${p.age(gs.season)} yaş · ${GameEngine.nationName(p.nationality)}", color = Muted)
@@ -322,6 +324,11 @@ fun ClubViewScreen(vm: GameViewModel) {
                         Text("${gs.leagues[c.leagueId]?.name} · ${GameEngine.leaguePosition(gs, c.id)}. sıra", color = Muted)
                     }
                     RatingBox(Lineups.teamStrength(gs, c), 42)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 6.dp)) {
+                    Avatar(c.id * 31 + 7, c.headCoachNat.ifBlank { c.country }, 50, c.primaryColor, c.secondaryColor, 44)
+                    Spacer(Modifier.width(8.dp))
+                    Column { Text("Teknik direktör", color = Muted, fontSize = 11.sp); Text(c.headCoach, fontWeight = FontWeight.Bold) }
                 }
                 KV("İtibar", "${c.reputation}")
                 KV("Stadyum", "${c.facilities.stadiumCapacity} kişilik")

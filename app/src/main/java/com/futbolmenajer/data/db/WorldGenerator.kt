@@ -45,7 +45,13 @@ object WorldGenerator {
         "Pyramids" to 68, "Ferencváros" to 69, "Qarabağ" to 69, "Ludogorets" to 68, "Legia Warszawa" to 68,
         "Lech Poznań" to 68, "Malmö FF" to 68, "Pafos FC" to 66, "Braga" to 75, "Vitória SC" to 70,
         "Sturm Graz" to 69, "Monterrey" to 70, "América" to 70, "Tigres UANL" to 70, "Cruz Azul" to 69,
-        "Vissel Kobe" to 66, "Ulsan HD" to 64, "Wydad Casablanca" to 64, "Al-Sadd" to 66
+        "Vissel Kobe" to 66, "Ulsan HD" to 64, "Wydad Casablanca" to 64, "Al-Sadd" to 66,
+        // 2026-27 yükselen / güncellenen kulüpler
+        "Coventry City" to 70, "Hull City" to 67, "Ipswich Town" to 68, "FC Schalke 04" to 71, "SC Paderborn 07" to 64,
+        "SV Elversberg" to 63, "Deportivo" to 67, "Málaga" to 66, "Racing Santander" to 65, "Frosinone" to 64, "Monza" to 67,
+        "Venezia" to 65, "Le Mans" to 60, "Troyes" to 62, "Amedspor" to 58, "Çorum FK" to 56, "Erzurumspor" to 57,
+        "Paris FC" to 72, "West Ham United" to 74, "Wolverhampton" to 72, "Burnley" to 69, "VfL Wolfsburg" to 72,
+        "Girona" to 72, "Mallorca" to 70, "Antalyaspor" to 60, "Kayserispor" to 59, "Fatih Karagümrük" to 58
     )
 
     private val colorOverride: Map<String, Pair<Long, Long>> = mapOf(
@@ -188,6 +194,20 @@ object WorldGenerator {
                 fifaPoints = 1000.0 + n.strength * 10.0)
         }
 
+        progress(0.93f, "Teknik ekipler…")
+        for (club in gs.clubs.values) {
+            val hc = RealPlayers2026.headCoaches[club.name]
+            if (hc != null) { club.headCoach = hc.first; club.headCoachNat = hc.second }
+            else { val (f, l) = NameBank.randomName(NameBank.groupFor(club.country), rnd); club.headCoach = "$f $l"; club.headCoachNat = club.country }
+            club.coachQuality = (club.reputation * 0.8 + rnd.nextInt(5, 20)).roundToInt().coerceIn(20, 95)
+            for (role in StaffRole.values()) club.staff.add(makeStaff(gs, role, club.country, (club.reputation * 0.75 + rnd.nextInt(-8, 12)).roundToInt(), rnd))
+        }
+        repeat(60) {
+            val role = StaffRole.values()[rnd.nextInt(StaffRole.values().size)]
+            val nat = NameBank.nations[rnd.nextInt(NameBank.nations.size)].code
+            gs.staffPool.add(makeStaff(gs, role, nat, rnd.nextInt(35, 92), rnd))
+        }
+
         progress(0.94f, "Serbest oyuncular…")
         repeat(320) {
             val pos = Position.values()[rnd.nextInt(Position.values().size)]
@@ -198,7 +218,7 @@ object WorldGenerator {
             gs.freeAgents.add(p.id)
         }
         gs.players.values.forEach { it.agentId = rnd.nextInt(1, 251) }
-        gs.nextId = pid + 10
+        gs.nextId = maxOf(gs.nextId, pid + 10)
         progress(0.97f, "Sezon takvimi…")
         return gs
     }
@@ -218,6 +238,12 @@ object WorldGenerator {
             primaryColor = colors.first, secondaryColor = colors.second,
             stadiumName = "$name Stadyumu"
         )
+    }
+
+    fun makeStaff(gs: GameState, role: StaffRole, nat: String, quality: Int, rnd: Random): Staff {
+        val (f, l) = NameBank.randomName(NameBank.groupFor(nat), rnd)
+        val q = quality.coerceIn(20, 95)
+        return Staff(gs.nextId++, "$f $l", nat, role, q, rnd.nextInt(32, 66), Economy.roundNice((60.0 * Math.exp(0.07 * q)).toLong()))
     }
 
     fun randomAge(rnd: Random): Int {

@@ -30,13 +30,13 @@ private val navItems = listOf(
     NavItem(Screen.HOME, Icons.Filled.Home), NavItem(Screen.INBOX, Icons.Filled.Mail), NavItem(Screen.SQUAD, Icons.Filled.Groups),
     NavItem(Screen.TACTICS, Icons.Filled.Tune), NavItem(Screen.TRAINING, Icons.Filled.FitnessCenter), NavItem(Screen.TRANSFERS, Icons.Filled.SwapHoriz),
     NavItem(Screen.FIXTURES, Icons.Filled.DateRange), NavItem(Screen.TABLES, Icons.Filled.Leaderboard), NavItem(Screen.COMPETITIONS, Icons.Filled.EmojiEvents),
-    NavItem(Screen.YOUTH, Icons.Filled.School), NavItem(Screen.FACILITIES, Icons.Filled.Domain), NavItem(Screen.FINANCE, Icons.Filled.AttachMoney),
+    NavItem(Screen.STAFF, Icons.Filled.Person), NavItem(Screen.STARS, Icons.Filled.Star), NavItem(Screen.YOUTH, Icons.Filled.School), NavItem(Screen.FACILITIES, Icons.Filled.Domain), NavItem(Screen.FINANCE, Icons.Filled.AttachMoney),
     NavItem(Screen.CLUB, Icons.Filled.Flag), NavItem(Screen.NATIONAL, Icons.Filled.Public), NavItem(Screen.SAVE_LOAD, Icons.Filled.Save)
 )
 
 private val gameScreens = setOf(Screen.HOME, Screen.INBOX, Screen.SQUAD, Screen.TACTICS, Screen.TRAINING, Screen.TRANSFERS, Screen.FIXTURES,
     Screen.TABLES, Screen.COMPETITIONS, Screen.YOUTH, Screen.FACILITIES, Screen.FINANCE, Screen.CLUB, Screen.NATIONAL, Screen.PLAYER,
-    Screen.CLUB_VIEW, Screen.MATCH_REPORT, Screen.SAVE_LOAD, Screen.PRE_MATCH)
+    Screen.CLUB_VIEW, Screen.MATCH_REPORT, Screen.SAVE_LOAD, Screen.PRE_MATCH, Screen.STAFF, Screen.STARS)
 
 @Composable
 fun App(vm: GameViewModel) {
@@ -132,6 +132,8 @@ fun App(vm: GameViewModel) {
                     Screen.CLUB_VIEW -> ClubViewScreen(vm)
                     Screen.SAVE_LOAD -> SaveLoadScreen(vm)
                     Screen.SACKED -> SackedScreen(vm)
+                    Screen.STAFF -> StaffScreen(vm)
+                    Screen.STARS -> StarsScreen(vm)
                 }
             }
         }

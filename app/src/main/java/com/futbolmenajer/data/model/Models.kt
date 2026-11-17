@@ -186,7 +186,24 @@ data class Club(
     var fanMood: Int = 60,
     var boardConfidence: Int = 70,
     var stadiumName: String = "",
-    var coefficientPoints: Double = 0.0
+    var coefficientPoints: Double = 0.0,
+    var headCoach: String = "",
+    var headCoachNat: String = "",
+    var coachQuality: Int = 60,
+    val staff: MutableList<Staff> = mutableListOf()
+)
+
+/* ----------------------- TEKNİK EKİP ----------------------- */
+
+@Serializable enum class StaffRole(val tr: String) {
+    ASSISTANT("Yardımcı Antrenör"), GK_COACH("Kaleci Antrenörü"), FITNESS("Kondisyoner"),
+    SCOUT("Baş Gözlemci"), PHYSIO("Fizyoterapist"), YOUTH_COACH("Altyapı Sorumlusu")
+}
+
+@Serializable
+data class Staff(
+    val id: Int, val name: String, val nationality: String, val role: StaffRole,
+    var quality: Int, val age: Int, var weeklyWage: Long
 )
 
 /* ----------------------- TAKTİK ----------------------- */
@@ -456,7 +473,8 @@ data class GameState(
     /** leagueId → geçen sezonun final sıralaması */
     val lastLeagueFinal: HashMap<Int, MutableList<Int>> = HashMap(),
     var jobOffers: MutableList<Int> = mutableListOf(),
-    var version: Int = 1
+    val staffPool: MutableList<Staff> = mutableListOf(),
+    var version: Int = 2
 ) {
     fun newId(): Int = nextId++
     val userClub: Club get() = clubs.getValue(userClubId)

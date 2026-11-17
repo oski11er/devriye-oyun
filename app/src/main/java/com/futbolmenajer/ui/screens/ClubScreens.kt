@@ -29,7 +29,8 @@ fun HomeScreen(vm: GameViewModel) {
     val gs = vm.gs ?: return
     val club = gs.userClub
     val league = gs.leagues.getValue(club.leagueId)
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
+    Row(Modifier.fillMaxSize().padding(8.dp)) {
+      Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(end = 6.dp)) {
         InfoCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ClubDot(club.primaryColor, 28); Spacer(Modifier.width(10.dp))
@@ -52,6 +53,21 @@ fun HomeScreen(vm: GameViewModel) {
                 if (next.day == gs.day) Button(onClick = { vm.selectedFixtureId = next.id; vm.go(Screen.PRE_MATCH) }, modifier = Modifier.padding(top = 6.dp)) { Text("Maça Git") }
             }
         }
+        Row {
+            InfoCard(Modifier.weight(1f).padding(end = 4.dp)) {
+                Text("Yönetim güveni", color = Muted, fontSize = 12.sp)
+                Text("${club.boardConfidence}/100", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = if (club.boardConfidence > 50) Good else if (club.boardConfidence > 25) Warn else Bad)
+                Text(gs.objective?.description ?: "", fontSize = 11.sp, color = Muted)
+            }
+            InfoCard(Modifier.weight(1f).padding(start = 4.dp)) {
+                Text("Taraftar", color = Muted, fontSize = 12.sp)
+                Text("${club.fanMood}/100", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("Transfer: ${Economy.fmt(club.finances.transferBudget)}", fontSize = 11.sp, color = Muted)
+            }
+        }
+        FansPanel(gs, club)
+      }
+      Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(start = 6.dp)) {
         // mini puan tablosu
         InfoCard {
             Text("Puan durumu", color = Muted, fontSize = 12.sp)
@@ -71,18 +87,6 @@ fun HomeScreen(vm: GameViewModel) {
             }
             TextButton(onClick = { vm.go(Screen.TABLES) }) { Text("Tüm tablo →") }
         }
-        Row {
-            InfoCard(Modifier.weight(1f).padding(end = 4.dp)) {
-                Text("Yönetim güveni", color = Muted, fontSize = 12.sp)
-                Text("${club.boardConfidence}/100", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = if (club.boardConfidence > 50) Good else if (club.boardConfidence > 25) Warn else Bad)
-                Text(gs.objective?.description ?: "", fontSize = 11.sp, color = Muted)
-            }
-            InfoCard(Modifier.weight(1f).padding(start = 4.dp)) {
-                Text("Taraftar", color = Muted, fontSize = 12.sp)
-                Text("${club.fanMood}/100", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text("Transfer: ${Economy.fmt(club.finances.transferBudget)}", fontSize = 11.sp, color = Muted)
-            }
-        }
         val unread = gs.inbox.filter { !it.read }.take(4)
         if (unread.isNotEmpty()) InfoCard {
             Text("Okunmamış mesajlar", color = Muted, fontSize = 12.sp)
@@ -94,6 +98,7 @@ fun HomeScreen(vm: GameViewModel) {
             Text("Son sonuçlar", color = Muted, fontSize = 12.sp)
             results.forEach { f -> FixtureLine(gs, f) { vm.openReport(f.id) } }
         }
+      }
     }
 }
 
@@ -167,6 +172,7 @@ fun ClubScreen(vm: GameViewModel) {
             KV("Stadyum", "${c.stadiumName} (${c.facilities.stadiumCapacity})")
             KV("Ülke", GameEngine.nationName(c.country))
         }
+        FansPanel(gs, c)
         SectionTitle("Sezon hedefi")
         InfoCard {
             Text(gs.objective?.description ?: "-", fontWeight = FontWeight.Bold)

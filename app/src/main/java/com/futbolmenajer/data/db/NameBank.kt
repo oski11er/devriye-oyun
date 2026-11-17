@@ -111,7 +111,7 @@ object NameBank {
         "Park", "Smith", "Johnson", "Jones", "Williams", "Brown", "Diallo", "Camara", "Traoré", "Müller", "Rossi", "Ramos",
         "Martins", "Nunes", "Oliveira", "Neves", "Dias", "Lima", "Diop", "Fofana", "Moreno", "Gutiérrez", "Herrera", "Ruiz", "Navarro")
     private val famous: Set<String> by lazy {
-        RealPlayers.byClub.keys.flatMap { RealPlayers.parse(it) }.map { it.last.substringAfterLast(' ') }.filter { it !in common }.toSet() +
+        RealPlayers.allClubs().flatMap { RealPlayers.parse(it) }.map { it.last.substringAfterLast(' ') }.filter { it !in common }.toSet() +
             setOf("Mbappé", "Haaland", "Kane", "Yamal", "Messi", "Ronaldo", "Kvaratskhelia", "Doku", "Musiala", "Wirtz", "Salah",
                 "Griezmann", "Lewandowski", "Modrić", "Bellingham", "Saka", "Palmer", "Foden", "Rice", "Pedri", "Gavi")
     }

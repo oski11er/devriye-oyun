@@ -630,8 +630,21 @@ Son Heung-min;LW;1992;KOR;83;83
 
     data class Entry(val first: String, val last: String, val pos: String, val birth: Int, val nat: String, val ovr: Int, val pot: Int)
 
+    /** Güncel (2026-27) kadrolardaki tüm isimler — eski listelerden çıkarılır. */
+    private val updatedNames: Set<String> by lazy {
+        RealPlayers2026.byClub.values.flatMap { parseRaw(it) }.map { (it.first + " " + it.last).trim() }.toSet()
+    }
+
+    /** Kulüp kadrosu: 2026-27 listesi varsa onu, yoksa eski listeyi (taşınan oyuncular hariç) döndürür. */
     fun parse(club: String): List<Entry> {
+        RealPlayers2026.byClub[club]?.let { return parseRaw(it) }
         val raw = byClub[club] ?: return emptyList()
+        return parseRaw(raw).filter { (it.first + " " + it.last).trim() !in updatedNames }
+    }
+
+    fun allClubs(): Set<String> = byClub.keys + RealPlayers2026.byClub.keys
+
+    fun parseRaw(raw: String): List<Entry> {
         return raw.lines().mapNotNull { line ->
             val p = line.trim().split(";")
             if (p.size < 6) return@mapNotNull null

@@ -34,7 +34,10 @@ class TeamSide(
     val lineup: MutableList<Int>,
     val bench: MutableList<Int>,
     val reputation: Int,
-    val clubColor: Long = 0xFF1B5E20
+    val clubColor: Long = 0xFF1B5E20,
+    /** teknik ekip kalitesi (20-95) → küçük güç bonusu */
+    val coachQuality: Int = 60,
+    val secondColor: Long = 0xFFFFFFFF
 ) {
     val slots: MutableList<Position> = tactic.formation.slots.toMutableList()
     val starting: List<Int> = lineup.toList()
@@ -78,6 +81,8 @@ class MatchSim(
     var homePens: Int? = null; private set
     var awayPens: Int? = null; private set
     var extraTime = false; private set
+    /** bu dakika topa sahip olan takım (görsel maç için) */
+    var possessionSideId: Int = home.id; private set
     private var stoppage1 = 1 + rnd.nextInt(4)
     private var stoppage2 = 2 + rnd.nextInt(6)
     private var dirty = true
@@ -237,6 +242,8 @@ class MatchSim(
         when (t.passing) { PassingStyle.SHORT -> { s.mid *= 1.03; s.att *= 0.985 }; PassingStyle.DIRECT -> { s.att *= 1.03; s.mid *= 0.97 }; else -> {} }
         when (t.tempo) { Tempo.FAST -> { s.freq = 1.08; s.att *= 1.01 }; Tempo.SLOW -> { s.freq = 0.92; s.def *= 1.02 }; else -> {} }
         when (t.defLine) { DefensiveLine.HIGH -> { s.mid *= 1.02; s.def *= 0.98 }; DefensiveLine.DEEP -> { s.def *= 1.03; s.mid *= 0.98 }; else -> {} }
+        val coachF = 1.0 + (side.coachQuality - 60) / 1500.0
+        s.def *= coachF; s.mid *= coachF; s.att *= coachF
         val numF = (count / 11.0).pow(1.3)
         s.def *= numF; s.mid *= numF; s.att *= numF
         if (!neutral && side === home) { s.def *= 1.03; s.mid *= 1.03; s.att *= 1.03 }
@@ -258,6 +265,7 @@ class MatchSim(
         val defSide = other(attSide)
         val aStr = if (attSide === home) strH else strA
         val dStr = if (attSide === home) strA else strH
+        possessionSideId = attSide.id
         attSide.stats.possessionTicks++
         attSide.stats.passes += 4 + rnd.nextInt(6)
 
@@ -691,7 +699,8 @@ object SideFactory {
             tactic = club.tactic.copy()
             lineup = l; bench = b
         }
-        return TeamSide(club.id, club.name, isUser, tactic, lineup, bench, club.reputation, club.primaryColor)
+        val cq = if (isUser) (Staffing.q(club, StaffRole.ASSISTANT) + gs.managerReputation) / 2 else club.coachQuality
+        return TeamSide(club.id, club.name, isUser, tactic, lineup, bench, club.reputation, club.primaryColor, cq, club.secondaryColor)
     }
 
     fun forNation(gs: GameState, nt: NationalTeam): TeamSide {

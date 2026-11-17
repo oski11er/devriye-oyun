@@ -181,8 +181,10 @@ object GameEngine {
         var x = rnd.nextInt(total)
         var chosen = list.first()
         for (t in list) { x -= t.third; if (x < 0) { chosen = t; break } }
-        val med = p.contract?.clubId?.let { gs.clubs[it]?.facilities?.medicalLevel } ?: 3
-        val days = (chosen.second.random(rnd) * (1.15 - med * 0.05)).roundToInt().coerceAtLeast(1)
+        val cl = p.contract?.clubId?.let { gs.clubs[it] }
+        val med = cl?.facilities?.medicalLevel ?: 3
+        val physio = cl?.let { Staffing.q(it, StaffRole.PHYSIO) } ?: 50
+        val days = (chosen.second.random(rnd) * (1.15 - med * 0.04) * (1.25 - physio / 200.0)).roundToInt().coerceAtLeast(1)
         p.injuryDays = max(p.injuryDays, days)
         p.injuryName = chosen.first
         if (p.contract?.clubId == gs.userClubId) {
@@ -399,6 +401,7 @@ object GameEngine {
         }
         for (club in gs.clubs.values) {
             Economy.addLedger(gs, club, "Haftalık maaşlar", -(wages[club.id] ?: 0))
+            Economy.addLedger(gs, club, "Teknik ekip maaşları", -club.staff.sumOf { it.weeklyWage })
             Economy.addLedger(gs, club, "Sponsorluk ve mağaza", Economy.weeklyCommercial(club))
             val f = club.facilities
             val maint = (f.stadiumLevel + f.trainingLevel + f.youthLevel + f.medicalLevel + f.scoutingLevel + f.commercialLevel) * 600L * (1 + f.stadiumCapacity / 25000)
@@ -442,13 +445,19 @@ object GameEngine {
                 if (isUser) {
                     if (focus == TrainingFocus.RECOVERY) p.fitness = min(100, p.fitness + 15)
                     else p.fitness = max(40, p.fitness - plan.intensity.fatigue)
-                    if (rnd.nextDouble() < plan.intensity.injuryRisk * 7) injure(gs, p, minor = true)
+                    val fitQ = Staffing.q(club, StaffRole.FITNESS)
+                    if (rnd.nextDouble() < plan.intensity.injuryRisk * 7 * (1.4 - fitQ / 100.0)) injure(gs, p, minor = true)
                 }
                 if (focus == TrainingFocus.RECOVERY) continue
                 val age = p.age(gs.season)
                 val g = growthBase(age)
                 val gap = if (g > 0) ((p.potential - p.overall) / 8.0).coerceIn(0.05, 1.6) else 1.0
-                val facF = 0.6 + (if (p.isYouth) youthFac else fac) * 0.08
+                val staffF = when {
+                    p.isYouth -> 0.8 + Staffing.q(club, StaffRole.YOUTH_COACH) / 250.0
+                    p.position == Position.GK -> 0.8 + Staffing.q(club, StaffRole.GK_COACH) / 250.0
+                    else -> 0.8 + Staffing.q(club, StaffRole.ASSISTANT) / 250.0
+                }
+                val facF = (0.6 + (if (p.isYouth) youthFac else fac) * 0.08) * staffF
                 val attrsIdx = focusAttrs(focus, p.position)
                 repeat(2) {
                     val ai = attrsIdx[rnd.nextInt(attrsIdx.size)]
@@ -516,8 +525,9 @@ object GameEngine {
     /** Scout seviyesine göre potansiyel tahmini (aralık). */
     fun roughPotential(gs: GameState, p: Player): String {
         val lvl = gs.userClub.facilities.scoutingLevel
+        val sq = Staffing.q(gs.userClub, StaffRole.SCOUT)
         if (p.contract?.clubId == gs.userClubId || lvl >= 9) return "${p.potential}"
-        val err = (12 - lvl).coerceAtLeast(2)
+        val err = (14 - lvl - sq / 25).coerceAtLeast(1)
         return "${(p.potential - err).coerceAtLeast(p.overall)}-${(p.potential + err).coerceAtMost(99)}"
     }
 

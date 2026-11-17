@@ -19,7 +19,8 @@ enum class Screen(val title: String) {
     TACTICS("Taktik"), TRAINING("Antrenman"), TRANSFERS("Transfer"), FIXTURES("Fikstür"), TABLES("Puan Durumu"),
     COMPETITIONS("Turnuvalar"), YOUTH("Gençlik Akademisi"), FACILITIES("Tesisler"), FINANCE("Finans"),
     CLUB("Kulüp & Hedefler"), NATIONAL("Milli Takımlar"), PRE_MATCH("Maç Önü"), LIVE_MATCH("Canlı Maç"),
-    MATCH_REPORT("Maç Raporu"), PLAYER("Oyuncu"), CLUB_VIEW("Kulüp"), SAVE_LOAD("Kaydet / Yükle"), SACKED("İş Teklifleri")
+    MATCH_REPORT("Maç Raporu"), PLAYER("Oyuncu"), CLUB_VIEW("Kulüp"), SAVE_LOAD("Kaydet / Yükle"), SACKED("İş Teklifleri"),
+    STAFF("Teknik Ekip"), STARS("Wonderkids & Yıldızlar")
 }
 
 class GameViewModel(app: Application) : AndroidViewModel(app) {

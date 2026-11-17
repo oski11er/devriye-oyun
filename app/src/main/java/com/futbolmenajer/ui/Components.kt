@@ -120,6 +120,9 @@ fun PlayerRow(gs: GameState, p: Player, onClick: () -> Unit, trailing: (@Composa
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val club = p.contract?.clubId?.let { gs.clubs[it] }
+        Avatar(p.id, p.nationality, p.age(gs.season), club?.primaryColor ?: 0xFF455A64, club?.secondaryColor ?: 0xFFFFFFFF, 38)
+        Spacer(Modifier.width(6.dp))
         PosBadge(posOverride ?: p.position)
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
