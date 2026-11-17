@@ -42,7 +42,7 @@ object Economy {
 
     /** Oyuncunun beklediği haftalık maaş (lig itibarına göre). */
     fun expectedWage(ovr: Int, leagueRep: Int): Long {
-        val base = 15.0 * exp(0.105 * ovr)
+        val base = 25.0 * exp(0.105 * ovr)
         val leagueFactor = 0.30 + 0.75 * (leagueRep / 100.0)
         return roundNice(max(300.0, base * leagueFactor).roundToLong())
     }
@@ -143,6 +143,6 @@ object Economy {
     /** Haftalık sponsorluk/mağaza geliri. */
     fun weeklyCommercial(club: Club): Long {
         val r = club.reputation.toDouble()
-        return (r * r * r * club.facilities.commercialLevel * 0.9 * (0.8 + club.fanMood / 250.0)).roundToLong()
+        return (r * r * r * club.facilities.commercialLevel * 0.25 * (0.8 + club.fanMood / 250.0)).roundToLong()
     }
 }

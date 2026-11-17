@@ -105,10 +105,24 @@ object NameBank {
         NameGroup.WEST_AFRICAN to listOf("Mané", "Koulibaly", "Gueye", "Sarr", "Jackson", "Osimhen", "Lookman", "Chukwueze", "Ndidi", "Iwobi", "Kessié", "Haller", "Adingra", "Diallo", "Fofana", "Kudus", "Partey", "Semenyo", "Williams", "Onana", "Mbeumo", "Anguissa", "Bissouma", "Traoré", "Doucouré", "Camara", "Diop", "Ndiaye", "Mendy", "Touré")
     )
 
+    /** Üretilen oyunculara ünlü gerçek futbolcuların soyadı verilmez (karışıklığı önlemek için). */
+    private val common = setOf("Silva", "Santos", "Fernandes", "Martínez", "García", "Pereira", "Costa", "Gomes", "Rodríguez",
+        "González", "López", "Sánchez", "Pérez", "Fernández", "Díaz", "Torres", "Álvarez", "Romero", "Hernández", "Kim", "Lee",
+        "Park", "Smith", "Johnson", "Jones", "Williams", "Brown", "Diallo", "Camara", "Traoré", "Müller", "Rossi", "Ramos",
+        "Martins", "Nunes", "Oliveira", "Neves", "Dias", "Lima", "Diop", "Fofana", "Moreno", "Gutiérrez", "Herrera", "Ruiz", "Navarro")
+    private val famous: Set<String> by lazy {
+        RealPlayers.byClub.keys.flatMap { RealPlayers.parse(it) }.map { it.last.substringAfterLast(' ') }.filter { it !in common }.toSet() +
+            setOf("Mbappé", "Haaland", "Kane", "Yamal", "Messi", "Ronaldo", "Kvaratskhelia", "Doku", "Musiala", "Wirtz", "Salah",
+                "Griezmann", "Lewandowski", "Modrić", "Bellingham", "Saka", "Palmer", "Foden", "Rice", "Pedri", "Gavi")
+    }
+
     fun randomName(group: NameGroup, rnd: Random): Pair<String, String> {
         val f = first.getValue(group)
         val l = last.getValue(group)
-        return f[rnd.nextInt(f.size)] to l[rnd.nextInt(l.size)]
+        var ln = l[rnd.nextInt(l.size)]
+        var tries = 0
+        while (ln.substringAfterLast(' ') in famous && tries++ < 12) ln = l[rnd.nextInt(l.size)]
+        return f[rnd.nextInt(f.size)] to ln
     }
 
     fun groupFor(code: String): NameGroup = nationByCode[code]?.group ?: NameGroup.ENGLISH

@@ -262,7 +262,7 @@ class MatchSim(
         attSide.stats.passes += 4 + rnd.nextInt(6)
 
         val ratio = (aStr.att / dStr.def).coerceIn(0.4, 2.5)
-        val chanceP = 0.20 * ratio.pow(1.3) * attSide.tactic.mentality.atk / defSide.tactic.mentality.def * aStr.freq
+        val chanceP = 0.165 * ratio.pow(1.8) * attSide.tactic.mentality.atk / defSide.tactic.mentality.def * aStr.freq
         val r = rnd.nextDouble()
         when {
             r < chanceP -> chance(attSide, defSide, ratio, aStr, dStr)
@@ -304,12 +304,12 @@ class MatchSim(
         val weights = cands.map { (id, pos, pl) ->
             pl ?: return@map 0.0
             var w = when (pos) {
-                Position.ST -> 5.0; Position.LW, Position.RW -> 3.0; Position.AM -> 3.0
-                Position.CM -> 1.4; Position.DM -> 0.6; Position.LB, Position.RB -> 0.5
+                Position.ST -> 3.0; Position.LW, Position.RW -> 2.3; Position.AM -> 2.3
+                Position.CM -> 1.3; Position.DM -> 0.6; Position.LB, Position.RB -> 0.5
                 Position.CB -> if (header) 2.2 else 0.35; Position.GK -> 0.0
             }
             if (s.tactic.instructions[id] == PlayerInstruction.SHOOT_MORE) w *= 1.6
-            w * (if (header) pl.heightCm / 180.0 * pl.attrs.physical / 60.0 else pl.attrs.shooting / 60.0)
+            w * (if (header) pl.heightCm / 180.0 * pl.attrs.physical / 70.0 else 0.6 + pl.attrs.shooting / 175.0)
         }
         return weightedPick(cands.map { it.first }, weights)
     }

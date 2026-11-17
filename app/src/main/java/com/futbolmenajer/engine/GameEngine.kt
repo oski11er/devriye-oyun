@@ -401,7 +401,7 @@ object GameEngine {
             Economy.addLedger(gs, club, "Haftalık maaşlar", -(wages[club.id] ?: 0))
             Economy.addLedger(gs, club, "Sponsorluk ve mağaza", Economy.weeklyCommercial(club))
             val f = club.facilities
-            val maint = (f.stadiumLevel + f.trainingLevel + f.youthLevel + f.medicalLevel + f.scoutingLevel + f.commercialLevel) * 1500L * (1 + f.stadiumCapacity / 20000)
+            val maint = (f.stadiumLevel + f.trainingLevel + f.youthLevel + f.medicalLevel + f.scoutingLevel + f.commercialLevel) * 600L * (1 + f.stadiumCapacity / 25000)
             Economy.addLedger(gs, club, "Tesis bakım giderleri", -maint)
             if (club.id != gs.userClubId && club.finances.balance < 0) {
                 club.finances.transferBudget = 0
