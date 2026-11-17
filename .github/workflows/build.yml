@@ -62,6 +62,14 @@ jobs:
           timeout 300 godot --headless --path . -- --shots > logs/headless.txt 2>&1 || true
           grep -hE "SCRIPT ERROR|Parse Error|ERROR:|   at: |TEST_|DRIVE|stage|TESTS_DONE|WARN|planned" logs/headless.txt | grep -v ALSA | head -n 300 > logs/summary_headless.txt || true
 
+      - name: Hızlı test sonucunu ci-check dalına gönder
+        if: always()
+        run: |
+          mkdir -p /tmp/chk && cp logs/headless.txt logs/summary_headless.txt /tmp/chk/ 2>/dev/null || true
+          cd /tmp/chk && git init -q -b ci-check && git add -A
+          git -c user.name=ci -c user.email=ci@localhost commit -q -m "headless ${{ github.sha }}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" ci-check
+
       - name: Oyun içi ekran görüntüleri
         run: |
           timeout 700 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver vulkan -- --shots > logs/test_full.txt 2>&1 || true
