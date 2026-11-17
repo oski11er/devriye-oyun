@@ -1,0 +1,9 @@
+ERROR: Condition "status < 0" is true. Returning: ERR_CANT_OPEN
+   at: init_output_device (drivers/alsa/audio_driver_alsa.cpp:90)
+     at: initialize (servers/audio_server.cpp:247)
+SHOT 00_baslik draw_calls=356 fps=1 blocks=25 cars=0 peds=0
+SHOT 01_yasam_durum draw_calls=665 fps=1 blocks=25 cars=0 peds=0
+TEST_OK 1 hub sekmeleri
+SHOT 02_brifing draw_calls=755 fps=1 blocks=25 cars=0 peds=0
+TEST_OK 2 vardiya başladı
+SHOT 03_surus_3sahis draw_calls=873 fps=1 blocks=25 cars=16 peds=12
