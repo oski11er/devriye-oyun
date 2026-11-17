@@ -31,7 +31,7 @@ jobs:
       - name: Test çıktısı
         if: always()
         run: |
-          find app/build/test-results -name "*.xml" -exec sed -n '/<system-out>/,/<\/system-out>/p' {} \; | head -200 || true
+          find app/build/test-results -name "*.xml" -exec cat {} \; | grep -v "^\s*$" | head -150 || true
 
       - name: APK'yı yeniden adlandır
         run: |
