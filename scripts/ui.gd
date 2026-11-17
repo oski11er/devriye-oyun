@@ -444,7 +444,11 @@ func toast(msg: String, kind: String = "") -> void:
 	toasts.add_child(p)
 	while toasts.get_child_count() > 4:
 		toasts.get_child(0).free()
-	get_tree().create_timer(6.5, true).timeout.connect(func(): if is_instance_valid(p): p.queue_free())
+	get_tree().create_timer(6.5, true).timeout.connect(_kill.bind(p))
+
+func _kill(n: Node) -> void:
+	if is_instance_valid(n):
+		n.queue_free()
 
 func show_offer(bb: String) -> void:
 	offer_rt.text = bb

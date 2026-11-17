@@ -57,14 +57,15 @@ jobs:
           godot --headless --path . --import 2>&1 | tail -n 60 > logs/import.txt || true
           ls -R .godot/imported | head -n 5 >> logs/import.txt || true
 
-      - name: Oyun içi otomatik test + ekran görüntüleri
+      - name: Hızlı mantık testi (headless)
         run: |
-          timeout 900 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver vulkan -- --shots > logs/test_full.txt 2>&1 || true
-          if ! grep -q "SHOT 00" logs/test_full.txt; then
-            timeout 900 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 -- --shots > logs/test_full_gl.txt 2>&1 || true
-          fi
-          grep -hE "SCRIPT ERROR|Parse Error|ERROR:|at: |TEST_|SHOT|DRIVE|stage|TESTS_DONE|WARN" logs/test_full*.txt | grep -v ALSA | head -n 300 > logs/summary.txt || true
-          tail -n 60 logs/test_full.txt > logs/test_tail.txt || true
+          timeout 300 godot --headless --path . -- --shots > logs/headless.txt 2>&1 || true
+          grep -hE "SCRIPT ERROR|Parse Error|ERROR:|   at: |TEST_|DRIVE|stage|TESTS_DONE|WARN|planned" logs/headless.txt | grep -v ALSA | head -n 300 > logs/summary_headless.txt || true
+
+      - name: Oyun içi ekran görüntüleri
+        run: |
+          timeout 700 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver vulkan -- --shots > logs/test_full.txt 2>&1 || true
+          grep -hE "SCRIPT ERROR|Parse Error|ERROR:|   at: |TEST_|SHOT|TESTS_DONE" logs/test_full.txt | grep -v ALSA | head -n 300 > logs/summary.txt || true
 
       - name: Android ayarları
         run: |

@@ -18,6 +18,9 @@ func w(s: float) -> void:
 	await get_tree().create_timer(s, true).timeout
 
 func shot(n: String) -> void:
+	if DisplayServer.get_name() == "headless":
+		print("SHOT ", n, " (headless, atlandı) blocks=", M.city.loaded_count(), " cars=", M.traffic.cars.size())
+		return
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(dir + "/" + n + ".png")

@@ -539,11 +539,15 @@ func report(m: Dictionary, ok: bool, mult: float, note: String) -> void:
 			lines.push_front("Rapor kalitesi: [b]%%%d[/b] → +$%d, +%d XP" % [roundi(q * 100), mm, xp])
 		else:
 			lines.push_front("Ceza: -$%d, -%d XP, +%d disiplin" % [m["pen"]["m"], m["pen"]["xp"], m["pen"]["d"]])
-		modal("📄 Rapor gönderildi", "\n".join(lines), [B("Devriyeye dön", func(): if ok and m["story"] != "": story_advance(m), "pri")])
+		modal("📄 Rapor gönderildi", "\n".join(lines), [B("Devriyeye dön", _after_report.bind(m, ok), "pri")])
 	var btns := [B("Raporu gönder", func(): submit.call(false), "pri", false, true)]
 	if blk != null:
 		btns.append(B("Delili karart ve gönder (+$%d) risk %s" % [blk["amt"], mix_pct(risk_calc() * 0.6 + 0.1)], func(): submit.call(true), "dark", false, true))
 	modal("📝 Görev Raporu #%d" % m["id"], body, btns, extra)
+
+func _after_report(m: Dictionary, ok: bool) -> void:
+	if ok and m["story"] != "":
+		story_advance(m)
 
 func start_chase(m: Dictionary, c) -> void:
 	c.flee = true
