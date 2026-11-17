@@ -2193,7 +2193,7 @@ func _process(delta: float) -> void:
 	if M.mode == "car":
 		var rr: float = 18.0 * float(C.VEH[M.car_type].get("radar", 1.0))
 		for c in M.traffic.cars:
-			if c.speeder and not c.radared and c.pos.distance_to(p) < rr:
+			if c.speeder and not c.radared and M.traffic.on_hwy(c) and c.base * C.KMH > 125.0 and c.pos.distance_to(p) < rr:
 				c.radared = true
 				radio("📡 Radar: %s — %d km/h (limit 120). SİREN aç ve takip et." % [c.plate, roundi(c.base * C.KMH)], "warn")
 	if C.district_p(p) == G["region"] and (M.mode == "foot" or M.car_speed() > 2.5):

@@ -106,7 +106,7 @@ func _build_hud() -> void:
 	ip.add_child(info)
 	hud.add_child(ip)
 	var bb = VBoxContainer.new()
-	bb.position = Vector2(18, 160)
+	bb.position = Vector2(18, 176)
 	bb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for k in ["YAKIT", "HASAR", "LASTİK", "YORGUNLUK", "SAĞLIK"]:
 		var h = HBoxContainer.new()
@@ -129,7 +129,7 @@ func _build_hud() -> void:
 		bars[k] = fg
 	hud.add_child(bb)
 	speed_l = _label(40)
-	speed_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	speed_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	hud.add_child(speed_l)
 	rec_l = _label(20, Color(1, 0.3, 0.3))
 	hud.add_child(rec_l)
@@ -148,6 +148,7 @@ func _build_hud() -> void:
 	minimap.custom_minimum_size = Vector2(210, 210)
 	minimap.size = Vector2(210, 210)
 	minimap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	minimap.clip_contents = true
 	minimap.draw.connect(_draw_mini)
 	hud.add_child(minimap)
 	act_label = _label(24, Color(0.5, 1, 0.7))
@@ -189,7 +190,7 @@ func _draw_mini() -> void:
 	var sz = minimap.size
 	var c = sz * 0.5
 	var r = sz.x * 0.5
-	minimap.draw_circle(c, r, Color(0.04, 0.07, 0.12, 0.85))
+	minimap.draw_rect(Rect2(Vector2.ZERO, sz), Color(0.04, 0.07, 0.12, 0.85))
 	var pp: Vector2 = M.player_pos()
 	var sc = r / 230.0
 	var rot: float = -float(M.player_yaw()) + PI
@@ -224,12 +225,11 @@ func _draw_mini() -> void:
 	if m != null:
 		var mp: Vector2 = tf.call(m["p"])
 		var dv = mp - c
-		if dv.length() > r - 8:
-			mp = c + dv.normalized() * (r - 8)
+		mp = Vector2(clampf(mp.x, 10, sz.x - 10), clampf(mp.y, 10, sz.y - 10))
 		var blink = int(Time.get_ticks_msec() / 300) % 2 == 0
 		minimap.draw_circle(mp, 8, Color(1, 0.82, 0.2) if blink else Color(1, 0.45, 0.1))
 	minimap.draw_colored_polygon(PackedVector2Array([c + Vector2(0, -10), c + Vector2(-7, 8), c + Vector2(7, 8)]), Color.WHITE)
-	minimap.draw_arc(c, r, 0, TAU, 64, Color(0.5, 0.65, 0.95, 0.7), 3)
+	minimap.draw_rect(Rect2(Vector2.ZERO, sz), Color(0.5, 0.65, 0.95, 0.7), false, 3.0)
 
 func _draw_joy() -> void:
 	if M.mode == "car" or not hud.visible:
@@ -310,14 +310,14 @@ func _layout() -> void:
 		btns[ids[i]].position = Vector2(v.x - 224 - m + col * 112, 250 + row * 62)
 	btns["pause"].position = Vector2(v.x - 300 - m, m)
 	minimap.position = Vector2(v.x - 210 - m, m)
-	speed_l.position = Vector2(v.x - 420 - m, 200)
-	speed_l.size = Vector2(170, 50)
+	speed_l.position = Vector2(18, 316)
+	speed_l.size = Vector2(250, 50)
 	rec_l.position = Vector2(v.x - 420 - m, m + 6)
 	mcard.position = Vector2(v.x * 0.5 - 300, m)
 	mcard.custom_minimum_size = Vector2(600, 0)
 	toasts.position = Vector2(m, v.y * 0.42)
 	toasts.custom_minimum_size = Vector2(minf(560, v.x * 0.42), 0)
-	offer.position = Vector2(v.x * 0.5 - 300, 110)
+	offer.position = Vector2(v.x * 0.5 - 300, 132)
 	act_label.position = Vector2(v.x * 0.5 - 300, v.y - 150)
 	act_label.size = Vector2(600, 40)
 	siren_l.position = Vector2.ZERO
@@ -527,7 +527,7 @@ func modal(title: String, body: String, buttons: Array, extra: Callable = Callab
 	var v = vs()
 	var w = minf(980.0, v.x * 0.92)
 	var scroll: ScrollContainer = modal_box.get_parent()
-	scroll.custom_minimum_size = Vector2(w, minf(v.y * 0.86, 640))
+	scroll.custom_minimum_size = Vector2(w, 0)
 	modal_box.custom_minimum_size = Vector2(w - 30, 0)
 	if title != "":
 		var t = _label(30, Color(0.62, 0.78, 1))
@@ -570,6 +570,13 @@ func modal(title: String, body: String, buttons: Array, extra: Callable = Callab
 	btn_root.visible = false
 	scroll.scroll_vertical = 0
 	get_tree().paused = true
+	call_deferred("_fit_modal")
+
+func _fit_modal() -> void:
+	var scroll: ScrollContainer = modal_box.get_parent()
+	var v = vs()
+	var need = modal_box.get_combined_minimum_size().y + 8.0
+	scroll.custom_minimum_size.y = minf(need, minf(v.y * 0.88, 660.0))
 
 func close_modal() -> void:
 	modal_layer.visible = false

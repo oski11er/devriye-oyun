@@ -104,36 +104,29 @@ func plain(c: Color, rough: float, metal: float = 0.0) -> StandardMaterial3D:
 		mat_cache[key] = _plain(c, rough, metal)
 	return mat_cache[key]
 
+var surf_mats := {}
 func city_mat(key: String) -> Material:
+	if surf_mats.has(key):
+		return surf_mats[key]
+	var m: StandardMaterial3D
 	match key:
-		"pave": return pbr("pavement", 0.35, Color(0.95, 0.95, 0.93), Color(0.62, 0.61, 0.58))
-		"brick": return pbr("brick", 0.4, Color(1, 1, 1), Color(0.55, 0.3, 0.24))
-		"brick_dark": return pbr("brick", 0.4, Color(0.72, 0.66, 0.62), Color(0.4, 0.25, 0.2))
-		"plaster": return pbr("plaster", 0.3, Color(0.96, 0.93, 0.86), Color(0.85, 0.82, 0.75))
-		"plaster_warm": return pbr("plaster", 0.3, Color(1.0, 0.86, 0.7), Color(0.85, 0.7, 0.55))
-		"plaster_blue": return pbr("plaster", 0.3, Color(0.75, 0.84, 1.0), Color(0.7, 0.78, 0.9))
-		"concrete": return pbr("concrete", 0.3, Color(0.92, 0.92, 0.92), Color(0.6, 0.6, 0.6))
-		"concrete_dark": return pbr("concrete", 0.3, Color(0.62, 0.63, 0.64), Color(0.4, 0.4, 0.4))
-		"grass": return pbr("grass", 0.25, Color(0.85, 1.0, 0.8), Color(0.25, 0.42, 0.18))
-		"lot": return pbr("asphalt", 0.2, Color(0.7, 0.7, 0.7), Color(0.18, 0.18, 0.19))
-		"store": return glass
-		"trim": return plain(Color(0.78, 0.77, 0.74), 0.7)
-		"roof": return pbr("concrete", 0.3, Color(0.55, 0.55, 0.57), Color(0.35, 0.35, 0.36))
-		"metal": return plain(Color(0.6, 0.62, 0.64), 0.4, 0.6)
-		"tin": return plain(Color(0.5, 0.53, 0.56), 0.45, 0.7)
-		"dark": return plain(Color(0.12, 0.13, 0.14), 0.5, 0.3)
-		"white": return plain(Color(0.92, 0.92, 0.9), 0.6)
-		"red": return plain(Color(0.7, 0.1, 0.08), 0.5)
-		"bark": return plain(Color(0.3, 0.22, 0.15), 0.9)
-		"leaf": return plain(Color(0.2, 0.36, 0.14), 0.85)
-		"navy": return plain(Color(0.08, 0.16, 0.38), 0.5)
-		"cont_r": return plain(Color(0.62, 0.16, 0.1), 0.6, 0.4)
-		"cont_b": return plain(Color(0.1, 0.3, 0.55), 0.6, 0.4)
-		"cont_g": return plain(Color(0.18, 0.45, 0.25), 0.6, 0.4)
-		"cont_y": return plain(Color(0.8, 0.6, 0.12), 0.6, 0.4)
-		"rail": return plain(Color(0.75, 0.77, 0.8), 0.35, 0.8)
-		"wood": return plain(Color(0.45, 0.32, 0.2), 0.8)
-	return plain(Color.MAGENTA, 0.5)
+		"pave": m = pbr("pavement", 0.35, Color.WHITE, Color(0.62, 0.61, 0.58)).duplicate()
+		"brick": m = pbr("brick", 0.4, Color.WHITE, Color(0.55, 0.3, 0.24)).duplicate()
+		"plaster": m = pbr("plaster", 0.3, Color.WHITE, Color(0.85, 0.82, 0.75)).duplicate()
+		"concrete": m = pbr("concrete", 0.3, Color.WHITE, Color(0.6, 0.6, 0.6)).duplicate()
+		"grass": m = pbr("grass", 0.25, Color.WHITE, Color(0.25, 0.42, 0.18)).duplicate()
+		"lot": m = pbr("asphalt", 0.2, Color.WHITE, Color(0.18, 0.18, 0.19)).duplicate()
+		"store": m = glass
+		"glass_lit": m = glass_lit
+		"lamp": m = lamp_head
+		"bark": m = _plain(Color(0.3, 0.22, 0.15), 0.9)
+		"leaf": m = _plain(Color(0.2, 0.36, 0.14), 0.85)
+		_:
+			m = _plain(Color.WHITE, 0.7, 0.15)
+	if key in ["pave", "brick", "plaster", "concrete", "grass", "lot", "misc"]:
+		m.vertex_color_use_as_albedo = true
+	surf_mats[key] = m
+	return m
 
 # ---------------------------------------------------------------- plan (deterministik)
 func block_meta(c: Vector2i) -> Dictionary:
@@ -258,10 +251,48 @@ func _st(key: String) -> SurfaceTool:
 		_sts[key] = s
 	return _sts[key]
 
-func _box(key: String, center: Vector3, size: Vector3) -> void:
-	var bm = BoxMesh.new()
-	bm.size = size
-	_st(key).append_from(bm, 0, Transform3D(Basis(), center))
+const KMAP := {
+	"trim": ["misc", Color(0.78, 0.77, 0.74)], "metal": ["misc", Color(0.6, 0.62, 0.64)], "tin": ["misc", Color(0.5, 0.53, 0.56)],
+	"dark": ["misc", Color(0.12, 0.13, 0.14)], "white": ["misc", Color(0.92, 0.92, 0.9)], "red": ["misc", Color(0.7, 0.1, 0.08)],
+	"navy": ["misc", Color(0.08, 0.16, 0.38)], "rail": ["misc", Color(0.75, 0.77, 0.8)], "wood": ["misc", Color(0.45, 0.32, 0.2)],
+	"cont_r": ["misc", Color(0.62, 0.16, 0.1)], "cont_b": ["misc", Color(0.1, 0.3, 0.55)], "cont_g": ["misc", Color(0.18, 0.45, 0.25)], "cont_y": ["misc", Color(0.8, 0.6, 0.12)],
+	"yellow": ["misc", Color(0.9, 0.7, 0.12)], "frame": ["misc", Color(0.2, 0.2, 0.21)], "pole": ["misc", Color(0.18, 0.19, 0.2)],
+	"pave": ["pave", Color(0.95, 0.95, 0.93)], "brick": ["brick", Color(1, 1, 1)], "brick_dark": ["brick", Color(0.72, 0.66, 0.62)],
+	"plaster": ["plaster", Color(0.96, 0.93, 0.86)], "plaster_warm": ["plaster", Color(1.0, 0.86, 0.7)], "plaster_blue": ["plaster", Color(0.75, 0.84, 1.0)],
+	"concrete": ["concrete", Color(0.92, 0.92, 0.92)], "concrete_dark": ["concrete", Color(0.62, 0.63, 0.64)], "roof": ["concrete", Color(0.55, 0.55, 0.57)],
+	"grass": ["grass", Color(0.85, 1.0, 0.8)], "lot": ["lot", Color(0.7, 0.7, 0.7)], "store": ["store", Color(1, 1, 1)], "glass_lit": ["glass_lit", Color(1, 1, 1)], "lamp": ["lamp", Color(1, 1, 1)],
+}
+const BIG := ["brick", "plaster", "concrete"]
+const FACES := [[Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3(0, 1, 0)], [Vector3(-1, 0, 0), Vector3(0, 0, -1), Vector3(0, 1, 0)], [Vector3(0, 1, 0), Vector3(1, 0, 0), Vector3(0, 0, 1)], [Vector3(0, -1, 0), Vector3(1, 0, 0), Vector3(0, 0, -1)], [Vector3(0, 0, 1), Vector3(-1, 0, 0), Vector3(0, 1, 0)], [Vector3(0, 0, -1), Vector3(1, 0, 0), Vector3(0, 1, 0)]]
+
+func _box(key: String, center: Vector3, size: Vector3, xf: Basis = Basis()) -> void:
+	var km: Array = KMAP.get(key, ["misc", Color.MAGENTA])
+	var st: SurfaceTool = _st(km[0])
+	var col: Color = km[1]
+	var h := size * 0.5
+	for f in FACES:
+		var n: Vector3 = f[0]
+		var u: Vector3 = f[1]
+		var v: Vector3 = f[2]
+		var c := n * h.abs() * 1.0
+		c = Vector3(n.x * h.x, n.y * h.y, n.z * h.z)
+		var du := Vector3(u.x * h.x, u.y * h.y, u.z * h.z)
+		var dv := Vector3(v.x * h.x, v.y * h.y, v.z * h.z)
+		var q := [c - du - dv, c + du - dv, c + du + dv, c - du + dv]
+		var wn := (xf * n).normalized()
+		# Godot: ön yüz saat yönünde → (b-a)x(c-a) normalin tersini göstermeli
+		var a: Vector3 = xf * q[0]
+		var b: Vector3 = xf * q[1]
+		var cc: Vector3 = xf * q[2]
+		var order := [0, 1, 2, 0, 2, 3]
+		if (b - a).cross(cc - a).dot(wn) > 0.0:
+			order = [0, 2, 1, 0, 3, 2]
+		for i in order:
+			st.set_color(col)
+			st.set_normal(wn)
+			var wp: Vector3 = center + xf * q[i]
+			st.set_uv(Vector2(wp.x + wp.y, wp.z + wp.y) * 0.25)
+			st.add_vertex(wp)
 
 func _mesh(key: String, mesh: Mesh, xf: Transform3D) -> void:
 	_st(key).append_from(mesh, 0, xf)
@@ -277,14 +308,22 @@ func _collider(parent: Node3D, center: Vector3, size: Vector3) -> void:
 	parent.add_child(sb)
 
 func _flush(parent: Node3D) -> void:
-	var am = ArrayMesh.new()
+	var big := ArrayMesh.new()
+	var det := ArrayMesh.new()
 	for key in _sts.keys():
+		var am: ArrayMesh = big if key in BIG else det
 		(_sts[key] as SurfaceTool).commit(am)
 		am.surface_set_material(am.get_surface_count() - 1, city_mat(key))
 	_sts.clear()
-	var mi = MeshInstance3D.new()
-	mi.mesh = am
-	parent.add_child(mi)
+	var mb := MeshInstance3D.new()
+	mb.mesh = big
+	parent.add_child(mb)
+	var md := MeshInstance3D.new()
+	md.mesh = det
+	md.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	md.visibility_range_end = 150.0
+	md.visibility_range_end_margin = 10.0
+	parent.add_child(md)
 
 func _mm(parent: Node3D, mesh: Mesh, xfs: Array, mat: Material, cast: bool) -> void:
 	if xfs.is_empty():
@@ -349,16 +388,14 @@ func _build_block(c: Vector2i) -> Node3D:
 	for door in md["doors"]:
 		_door(node, door)
 	_roads(node, c, r)
-	_flush(node)
-	if _wm == null:
-		_wm = BoxMesh.new()
-		_wm.size = Vector3(1.35, 1.8, 0.1)
-		_fm = BoxMesh.new()
-		_fm.size = Vector3(1.6, 2.05, 0.08)
-	_mm(node, _fm, win_f, plain(Color(0.2, 0.2, 0.21), 0.45, 0.5), false)
-	_mm(node, _wm, win_u, glass, false)
-	_mm(node, _wm, win_l, glass_lit, false)
+	for x in win_f:
+		_box("frame", (x as Transform3D).origin, Vector3(1.6, 2.05, 0.08), (x as Transform3D).basis)
+	for x in win_u:
+		_box("store", (x as Transform3D).origin, Vector3(1.35, 1.8, 0.1), (x as Transform3D).basis)
+	for x in win_l:
+		_box("glass_lit", (x as Transform3D).origin, Vector3(1.35, 1.8, 0.1), (x as Transform3D).basis)
 	_lamps(node, r)
+	_flush(node)
 	return node
 
 func _building(node: Node3D, lt: Dictionary, rng: RandomNumberGenerator, wu: Array, wl: Array, wf: Array) -> void:
@@ -488,51 +525,31 @@ func _tree(p: Vector3, rng: RandomNumberGenerator) -> void:
 		s.rings = 6
 		_mesh("leaf", s, Transform3D(Basis(), p + Vector3(rng.randf_range(-0.6, 0.6), h + rng.randf_range(-0.3, 0.8), rng.randf_range(-0.6, 0.6))))
 
-var _dash: BoxMesh
-var _stripe: BoxMesh
 func _roads(node: Node3D, c: Vector2i, r: Rect2) -> void:
-	if _dash == null:
-		_dash = BoxMesh.new()
-		_dash.size = Vector3(0.15, 0.02, 3.0)
-		_stripe = BoxMesh.new()
-		_stripe.size = Vector3(0.55, 0.02, 3.0)
-	var dx: Array = []
-	var cw: Array = []
 	var vx = c.x * C.S
 	var t = r.position.y + 6.0
 	while t < r.end.y - 6.0:
-		dx.append(Transform3D(Basis(), Vector3(vx, 0.012, t)))
+		_box("white", Vector3(vx, 0.012, t), Vector3(0.15, 0.02, 3.0))
 		t += 7.0
 	var hz = c.y * C.S
 	t = r.position.x + 6.0
 	while t < r.end.x - 6.0:
 		if c.y == 0:
-			for off in [-0.25, 0.25, -6.1, 6.1]:
-				if absf(off) > 1.0:
-					dx.append(Transform3D(Basis(Vector3.UP, PI / 2), Vector3(t, 0.012, hz + off)))
+			for off in [-6.1, 6.1]:
+				_box("white", Vector3(t, 0.012, hz + off), Vector3(3.0, 0.02, 0.15))
 		else:
-			dx.append(Transform3D(Basis(Vector3.UP, PI / 2), Vector3(t, 0.012, hz)))
+			_box("white", Vector3(t, 0.012, hz), Vector3(3.0, 0.02, 0.15))
 		t += 7.0
 	for i in 8:
 		var o = (i - 3.5) * 1.5
-		cw.append(Transform3D(Basis(), Vector3(vx + o, 0.013, r.position.y + 2.0)))
-		cw.append(Transform3D(Basis(), Vector3(vx + o, 0.013, r.end.y - 2.0)))
+		_box("white", Vector3(vx + o, 0.013, r.position.y + 2.0), Vector3(0.55, 0.02, 3.0))
+		_box("white", Vector3(vx + o, 0.013, r.end.y - 2.0), Vector3(0.55, 0.02, 3.0))
 		if c.y != 0:
-			cw.append(Transform3D(Basis(Vector3.UP, PI / 2), Vector3(r.position.x + 2.0, 0.013, hz + o)))
-			cw.append(Transform3D(Basis(Vector3.UP, PI / 2), Vector3(r.end.x - 2.0, 0.013, hz + o)))
-	var wmat = plain(Color(0.9, 0.9, 0.86), 0.55)
-	_mm(node, _dash, dx, wmat, false)
-	_mm(node, _stripe, cw, wmat, false)
+			_box("white", Vector3(r.position.x + 2.0, 0.013, hz + o), Vector3(3.0, 0.02, 0.55))
+			_box("white", Vector3(r.end.x - 2.0, 0.013, hz + o), Vector3(3.0, 0.02, 0.55))
 	if c.y == 0:
-		var yl = plain(Color(0.9, 0.7, 0.12), 0.55)
-		var cl: Array = []
-		t = r.position.x + 1.5
-		while t < r.end.x - 1.5:
-			cl.append(Transform3D(Basis(Vector3.UP, PI / 2), Vector3(t, 0.012, hz - 0.2)))
-			cl.append(Transform3D(Basis(Vector3.UP, PI / 2), Vector3(t, 0.012, hz + 0.2)))
-			t += 3.0
-		_mm(node, _dash, cl, yl, false)
-		# bariyerler + otoyol tabelası
+		_box("yellow", Vector3(r.get_center().x, 0.012, hz - 0.2), Vector3(r.size.x, 0.02, 0.12))
+		_box("yellow", Vector3(r.get_center().x, 0.012, hz + 0.2), Vector3(r.size.x, 0.02, 0.12))
 		for zz in [hz - C.HW * 0.5 - 0.6, hz + C.HW * 0.5 + 0.6]:
 			_box("rail", Vector3(r.get_center().x, 0.75, zz), Vector3(r.size.x, 0.35, 0.12))
 		if posmod(c.x, 2) == 0:
@@ -540,57 +557,28 @@ func _roads(node: Node3D, c: Vector2i, r: Rect2) -> void:
 			for zz in [hz - C.HW * 0.5 - 1.2, hz + C.HW * 0.5 + 1.2]:
 				_box("dark", Vector3(gx, 3.9, zz), Vector3(0.4, 7.8, 0.4))
 			_box("dark", Vector3(gx, 7.4, hz), Vector3(0.4, 0.4, C.HW + 2.4))
-			for s in [-1.0, 1.0]:
+			for sgn in [-1.0, 1.0]:
+				_box("cont_g", Vector3(gx, 6.0, hz + sgn * 5.5), Vector3(0.1, 2.4, 6.5))
 				var sg = Label3D.new()
 				sg.text = "O-1  LİMAN →\n120"
 				sg.font_size = 110
 				sg.pixel_size = 0.012
-				sg.modulate = Color(1, 1, 1)
 				sg.outline_size = 0
-				var bg = MeshInstance3D.new()
-				var bm = BoxMesh.new()
-				bm.size = Vector3(0.1, 2.4, 6.5)
-				bg.mesh = bm
-				bg.material_override = plain(Color(0.06, 0.4, 0.2), 0.6)
-				bg.position = Vector3(gx, 6.0, hz + s * 5.5)
-				node.add_child(bg)
-				sg.position = Vector3(gx + s * -0.07 - 0.0, 6.0, hz + s * 5.5)
-				sg.position.x = gx - 0.07 if s < 0 else gx + 0.07
-				sg.rotation.y = -PI / 2 if s < 0 else PI / 2
+				sg.position = Vector3(gx - 0.07 if sgn < 0 else gx + 0.07, 6.0, hz + sgn * 5.5)
+				sg.rotation.y = -PI / 2 if sgn < 0 else PI / 2
 				node.add_child(sg)
 
-var lamp_points: Array = []
-var _pole: CylinderMesh
-var _arm: BoxMesh
-var _head: BoxMesh
 func _lamps(node: Node3D, r: Rect2) -> void:
-	if _pole == null:
-		_pole = CylinderMesh.new()
-		_pole.top_radius = 0.07
-		_pole.bottom_radius = 0.1
-		_pole.height = 7.0
-		_pole.radial_segments = 8
-		_arm = BoxMesh.new()
-		_arm.size = Vector3(0.1, 0.1, 1.8)
-		_head = BoxMesh.new()
-		_head.size = Vector3(0.45, 0.14, 0.7)
-	var px: Array = []
-	var ax: Array = []
-	var hx: Array = []
 	var pts: Array = []
 	for cc in [[r.position.x + 0.8, r.position.y + 0.8, -1.0], [r.end.x - 0.8, r.end.y - 0.8, 1.0], [r.get_center().x, r.position.y + 0.8, -1.0], [r.get_center().x, r.end.y - 0.8, 1.0]]:
 		var p = Vector3(cc[0], 0.18, cc[1])
 		var dz: float = cc[2]
-		px.append(Transform3D(Basis(), p + Vector3(0, 3.5, 0)))
-		ax.append(Transform3D(Basis(), p + Vector3(0, 6.9, dz * 0.9)))
+		_box("pole", p + Vector3(0, 3.5, 0), Vector3(0.16, 7.0, 0.16))
+		_box("pole", p + Vector3(0, 6.9, dz * 0.9), Vector3(0.1, 0.1, 1.8))
 		var hp = p + Vector3(0, 6.85, dz * 1.75)
-		hx.append(Transform3D(Basis(), hp))
+		_box("lamp", hp, Vector3(0.45, 0.14, 0.7))
 		pts.append(hp)
 	node.set_meta("lamps", pts)
-	var pm = plain(Color(0.18, 0.19, 0.2), 0.5, 0.6)
-	_mm(node, _pole, px, pm, true)
-	_mm(node, _arm, ax, pm, true)
-	_mm(node, _head, hx, lamp_head, false)
 
 func lamps_near(p: Vector2, maxn: int) -> Array:
 	var all: Array = []
