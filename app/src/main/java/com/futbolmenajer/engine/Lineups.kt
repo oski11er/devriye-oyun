@@ -30,8 +30,8 @@ object Lineups {
         }
         // yedekler: 1 kaleci + en iyi diğerleri
         val bench = mutableListOf<Int>()
-        pool.filter { it.position == Position.GK }.maxByOrNull { it.overall }?.let { bench.add(it.id); pool.remove(it) }
-        pool.sortedByDescending { it.overall * (0.7 + 0.3 * it.fitness / 100.0) }.take(benchSize - bench.size).forEach { bench.add(it.id) }
+        if (benchSize > 0) pool.filter { it.position == Position.GK }.maxByOrNull { it.overall }?.let { bench.add(it.id); pool.remove(it) }
+        pool.sortedByDescending { it.overall * (0.7 + 0.3 * it.fitness / 100.0) }.take((benchSize - bench.size).coerceAtLeast(0)).forEach { bench.add(it.id) }
         return lineup.filter { it >= 0 }.toMutableList().let { l ->
             if (l.size == lineup.size) lineup to bench else {
                 // eksik oyuncu varsa yedeklerden doldur

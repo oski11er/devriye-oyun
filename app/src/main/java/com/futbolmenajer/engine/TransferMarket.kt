@@ -494,9 +494,10 @@ object TransferMarket {
             .maxByOrNull { it.overall }
         if (free != null && rnd.nextBoolean()) return free
         // diğer kulüplerden (aynı ülke veya benzer itibar)
+        val domestic = gs.clubs.values.filter { it.country == club.country }
+        val all = gs.clubs.values.toList()
         repeat(25) {
-            val all = gs.clubs.values
-            val c = all.elementAt(rnd.nextInt(all.size))
+            val c = if (rnd.nextDouble() < 0.65 && domestic.isNotEmpty()) domestic[rnd.nextInt(domestic.size)] else all[rnd.nextInt(all.size)]
             if (c.id == club.id || c.reputation > club.reputation + 3) return@repeat
             val cand = c.playerIds.mapNotNull { gs.players[it] }.filter {
                 it.position == pos && it.overall > currentBest && it.contract?.loanFromClubId == null &&

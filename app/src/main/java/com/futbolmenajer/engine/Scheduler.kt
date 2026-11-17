@@ -100,7 +100,7 @@ object Scheduler {
         gs.competitions[nat.id] = nat
         for (d in intlMatchDays) {
             // benzer güçteki takımları eşleştir
-            val teams = gs.nationalTeams.values.sortedByDescending { it.fifaPoints + rnd.nextInt(-80, 80) }
+            val teams = gs.nationalTeams.values.map { it to it.fifaPoints + rnd.nextInt(-80, 80) }.sortedByDescending { it.second }.map { it.first }
             var i = 0
             while (i + 1 < teams.size) {
                 val (h, a) = if (rnd.nextBoolean()) teams[i] to teams[i + 1] else teams[i + 1] to teams[i]

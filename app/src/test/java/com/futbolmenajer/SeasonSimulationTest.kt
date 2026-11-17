@@ -33,7 +33,20 @@ class SeasonSimulationTest {
         var matches = 0
         var guard = 0
         val t1 = System.currentTimeMillis()
+        var printedGoals = false
         while (gs.season < startSeason + 2 && guard++ < 5000) {
+            if (!printedGoals && gs.day > 300) {
+                printedGoals = true
+                val lf = gs.fixtures.filter { it.played && gs.competitions[it.competitionId]?.type == CompetitionType.LEAGUE }
+                println("Lig maçı başı gol: " + lf.map { it.homeGoals + it.awayGoals }.average() + " | ev galibiyeti %" + (lf.count { it.homeGoals > it.awayGoals } * 100 / lf.size) + " beraberlik %" + (lf.count { it.homeGoals == it.awayGoals } * 100 / lf.size))
+                val top = gs.players.values.filter { it.stats.goals > 0 }.sortedByDescending { it.stats.goals }.take(5)
+                println("Gol krallığı: " + top.joinToString { "${it.fullName} ${it.stats.goals}" })
+                val gt = Scheduler.sortedTable(gs, gs.userClub.leagueId).take(5)
+                println("Süper Lig ilk 5: " + gt.joinToString { "${gs.clubName(it.clubId)} ${it.pts}" })
+                val pl = gs.leagues.values.first { it.name == "Premier League" }
+                println("PL ilk 5: " + Scheduler.sortedTable(gs, pl.id).take(5).joinToString { "${gs.clubName(it.clubId)} ${it.pts}" })
+                println("Kullanıcı kasası: " + Economy.fmt(gs.userClub.finances.balance))
+            }
             when (val s = GameEngine.advance(gs)) {
                 is Stop.MatchDay -> {
                     val fx = gs.fixtures.first { it.id == s.fixtureId }
