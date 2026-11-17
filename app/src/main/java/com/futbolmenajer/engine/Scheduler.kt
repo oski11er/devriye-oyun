@@ -66,7 +66,8 @@ object Scheduler {
             val comp = Competition(lg.id, lg.name, CompetitionType.LEAGUE, lg.country, lg.id, lg.clubIds.toMutableList())
             gs.competitions[comp.id] = comp
             gs.tables[comp.id] = lg.clubIds.map { TableRow(it) }.toMutableList()
-            val rounds = roundRobin(lg.clubIds.shuffled(rnd), double = true)
+            // 24'ten fazla takımlı liglerde (MLS, Arjantin) tek devreli fikstür
+            val rounds = roundRobin(lg.clubIds.shuffled(rnd), double = lg.clubIds.size <= 24)
             val days = pickDays(rounds.size, saturdays, tuesdays)
             rounds.forEachIndexed { r, pairs ->
                 for ((h, a) in pairs) gs.fixtures.add(Fixture(gs.newId(), comp.id, days[r], h, a, "${r + 1}. Hafta"))

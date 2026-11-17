@@ -358,7 +358,7 @@ class MatchSim(
         val shooter = p(shooterId) ?: return
         val gk = gkOf(def)
         att.stats.shots++; att.stats.xg += xg
-        val finish = 1.0 + (shooter.attrs.shooting - 70) / 100.0 + (shooter.attrs.composure - 70) / 200.0
+        val finish = 1.0 + (shooter.attrs.shooting - 70) / 150.0 + (shooter.attrs.composure - 70) / 250.0
         val keeper = if (gk == null) 0.5 else 1.0 + (gk.attrs.goalkeeping * (0.7 + 0.3 * (fitness[gk.id] ?: 100.0) / 100) - 70) / 120.0
         val goalP = (xg * finish / keeper).coerceIn(0.01, 0.85)
         val r = rnd.nextDouble()
