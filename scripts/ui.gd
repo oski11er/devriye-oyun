@@ -285,10 +285,10 @@ func _build_buttons() -> void:
 	_mk_tbtn("hand", "EL\nFRENİ", "hand", Vector2i(110, 90), dark, 20)
 	_mk_tbtn("act", "ETKİLEŞİM", "", Vector2i(250, 84), Color(0.1, 0.42, 0.22, 0.8), 24).pressed.connect(func(): M.game.tap("act"))
 	_mk_tbtn("enter", "İN", "", Vector2i(120, 72), dark, 24).pressed.connect(func(): M.game.tap("enter"))
-	var small := [["siren", "SİREN"], ["horn", "KORNA"], ["lights", "FAR"], ["cam", "KAMERA"], ["backup", "TAKVİYE"], ["file", "DOSYA"], ["radio", "TELSİZ"], ["view", "GÖRÜŞ"]]
+	var small = [["siren", "SİREN"], ["horn", "KORNA"], ["lights", "FAR"], ["cam", "KAMERA"], ["backup", "TAKVİYE"], ["file", "DOSYA"], ["radio", "TELSİZ"], ["view", "GÖRÜŞ"]]
 	for s in small:
 		var id: String = s[0]
-		var b := _mk_tbtn(id, s[1], "horn" if id == "horn" else "", Vector2i(104, 54), dark, 18)
+		var b = _mk_tbtn(id, s[1], "horn" if id == "horn" else "", Vector2i(104, 54), dark, 18)
 		if id != "horn":
 			b.pressed.connect(func(): M.game.tap(id))
 	_mk_tbtn("pause", "II", "", Vector2i(64, 54), dark, 24).pressed.connect(func(): M.game.pause_menu())
@@ -303,7 +303,7 @@ func _layout() -> void:
 	btns["hand"].position = Vector2(v.x - 300 - m, v.y - 260 - m)
 	btns["act"].position = Vector2(v.x * 0.5 - 125, v.y - 84 - m)
 	btns["enter"].position = Vector2(v.x * 0.5 + 140, v.y - 76 - m)
-	var ids := ["siren", "horn", "lights", "cam", "backup", "file", "radio", "view"]
+	var ids = ["siren", "horn", "lights", "cam", "backup", "file", "radio", "view"]
 	for i in ids.size():
 		var col := i % 2
 		var row := i / 2
@@ -375,7 +375,7 @@ func _input(e: InputEvent) -> void:
 		if d.index == joy_id:
 			M.joy_vec = ((d.position - joy_origin) / 70.0).limit_length(1.0)
 		elif d.index == look_id:
-			var dl := d.position - look_last
+			var dl = d.position - look_last
 			look_last = d.position
 			M.cam_yaw -= dl.x * 0.006
 			M.cam_pitch = clampf(M.cam_pitch - dl.y * 0.004, -1.2, 0.6)
@@ -550,7 +550,7 @@ func modal(title: String, body: String, buttons: Array, extra: Callable = Callab
 	for bd in buttons:
 		if bd == null:
 			continue
-		var b := _mk_button(bd["t"], bd.get("c", ""))
+		var b = _mk_button(bd["t"], bd.get("c", ""))
 		b.custom_minimum_size.x = (w - 50) / grid.columns
 		b.disabled = bd.get("dis", false)
 		var f: Callable = bd.get("f", Callable())

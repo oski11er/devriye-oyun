@@ -203,7 +203,7 @@ func _ready() -> void:
 		game.title_screen()
 
 func _setup_input() -> void:
-	var keys := {"steer_left": [KEY_LEFT, KEY_A], "steer_right": [KEY_RIGHT, KEY_D], "gas": [KEY_UP, KEY_W], "brake": [KEY_DOWN, KEY_S], "hand": [KEY_SPACE], "horn": [KEY_H]}
+	var keys = {"steer_left": [KEY_LEFT, KEY_A], "steer_right": [KEY_RIGHT, KEY_D], "gas": [KEY_UP, KEY_W], "brake": [KEY_DOWN, KEY_S], "hand": [KEY_SPACE], "horn": [KEY_H]}
 	for a in keys.keys():
 		if not InputMap.has_action(a):
 			InputMap.add_action(a)
@@ -431,7 +431,7 @@ func car_visual(c1: Color, c2: Color, scl: float = 1.0) -> Node3D:
 
 func _moto_visual(c1: Color) -> Node3D:
 	var root := Node3D.new()
-	var parts := [[Vector3(0, 0.62, 0), Vector3(0.22, 0.3, 1.6), Color(0.1, 0.1, 0.1), 0.5, 0.4], [Vector3(0, 0.88, 0.25), Vector3(0.34, 0.26, 0.7), c1, 0.3, 0.5], [Vector3(0, 0.95, -0.35), Vector3(0.3, 0.1, 0.6), Color(0.08, 0.08, 0.08), 0.8, 0.0], [Vector3(0, 1.15, 0.72), Vector3(0.5, 0.35, 0.06), Color(0.2, 0.25, 0.3), 0.1, 0.3], [Vector3(-0.32, 0.8, -0.45), Vector3(0.22, 0.35, 0.5), Color(0.95, 0.95, 0.96), 0.3, 0.4], [Vector3(0.32, 0.8, -0.45), Vector3(0.22, 0.35, 0.5), Color(0.95, 0.95, 0.96), 0.3, 0.4]]
+	var parts = [[Vector3(0, 0.62, 0), Vector3(0.22, 0.3, 1.6), Color(0.1, 0.1, 0.1), 0.5, 0.4], [Vector3(0, 0.88, 0.25), Vector3(0.34, 0.26, 0.7), c1, 0.3, 0.5], [Vector3(0, 0.95, -0.35), Vector3(0.3, 0.1, 0.6), Color(0.08, 0.08, 0.08), 0.8, 0.0], [Vector3(0, 1.15, 0.72), Vector3(0.5, 0.35, 0.06), Color(0.2, 0.25, 0.3), 0.1, 0.3], [Vector3(-0.32, 0.8, -0.45), Vector3(0.22, 0.35, 0.5), Color(0.95, 0.95, 0.96), 0.3, 0.4], [Vector3(0.32, 0.8, -0.45), Vector3(0.22, 0.35, 0.5), Color(0.95, 0.95, 0.96), 0.3, 0.4]]
 	for pa in parts:
 		var mi := MeshInstance3D.new()
 		var bm := BoxMesh.new()
@@ -479,8 +479,8 @@ func spawn_car(t: String, pos: Vector3, yaw: float) -> void:
 	cs.shape = bs
 	cs.position = Vector3(0, 0.75, 0)
 	car.add_child(cs)
-	var c1 := Color(sp["c1"])
-	var c2 := Color(sp["c2"])
+	var c1 = Color(sp["c1"])
+	var c2 = Color(sp["c2"])
 	var liv := "std"
 	if game and game.G.size() > 0:
 		liv = game.G.get("livery", "std")
@@ -694,7 +694,7 @@ func enter_interior(spots: Array) -> void:
 	fl.add_child(fcs)
 	interior.add_child(fl)
 	var wm: Material = city.pbr("plaster", 0.5, Color(0.95, 0.92, 0.85), Color(0.8, 0.77, 0.7))
-	var walls := [[Vector3(w / 2, 1.4, -0.1), Vector3(w + 0.4, 2.8, 0.2)], [Vector3(-0.1, 1.4, d / 2), Vector3(0.2, 2.8, d)], [Vector3(w + 0.1, 1.4, d / 2), Vector3(0.2, 2.8, d)], [Vector3(w / 4 - 0.45, 0.3, d + 0.1), Vector3(w / 2 - 0.9, 0.6, 0.2)], [Vector3(w * 0.75 + 0.45, 0.3, d + 0.1), Vector3(w / 2 - 0.9, 0.6, 0.2)]]
+	var walls = [[Vector3(w / 2, 1.4, -0.1), Vector3(w + 0.4, 2.8, 0.2)], [Vector3(-0.1, 1.4, d / 2), Vector3(0.2, 2.8, d)], [Vector3(w + 0.1, 1.4, d / 2), Vector3(0.2, 2.8, d)], [Vector3(w / 4 - 0.45, 0.3, d + 0.1), Vector3(w / 2 - 0.9, 0.6, 0.2)], [Vector3(w * 0.75 + 0.45, 0.3, d + 0.1), Vector3(w / 2 - 0.9, 0.6, 0.2)]]
 	for wl in walls:
 		var mi := MeshInstance3D.new()
 		var bm := BoxMesh.new()
@@ -711,7 +711,7 @@ func enter_interior(spots: Array) -> void:
 		sb.position = wl[0]
 		sb.add_child(cs)
 		interior.add_child(sb)
-	var furn := [[Vector3(2.6, 0.3, 1.8), Vector3(3.2, 0.6, 1.8), Color(0.35, 0.3, 0.42)], [Vector3(13.2, 0.42, 7.6), Vector3(3.2, 0.85, 2.2), Color(0.42, 0.28, 0.2)], [Vector3(8, 0.38, 4.6), Vector3(3, 0.75, 1.5), Color(0.24, 0.36, 0.3)], [Vector3(1.6, 0.95, 8.6), Vector3(2, 1.9, 1.4), Color(0.3, 0.3, 0.34)]]
+	var furn = [[Vector3(2.6, 0.3, 1.8), Vector3(3.2, 0.6, 1.8), Color(0.35, 0.3, 0.42)], [Vector3(13.2, 0.42, 7.6), Vector3(3.2, 0.85, 2.2), Color(0.42, 0.28, 0.2)], [Vector3(8, 0.38, 4.6), Vector3(3, 0.75, 1.5), Color(0.24, 0.36, 0.3)], [Vector3(1.6, 0.95, 8.6), Vector3(2, 1.9, 1.4), Color(0.3, 0.3, 0.34)]]
 	for f in furn:
 		var mi := MeshInstance3D.new()
 		var bm := BoxMesh.new()
@@ -832,7 +832,7 @@ func _physics_process(delta: float) -> void:
 			r = Vector3(1, 0, 0)
 		var dir := (f * -v.y + r * v.x)
 		var fat2: float = G["fatigue"]
-		var spd2 := 5.2 * (1.0 - maxf(0.0, fat2 - 40.0) / 140.0) * (0.8 if float(G["hp"]) < 40.0 else 1.0) * (0.9 if float(G["hunger"]) > 85.0 else 1.0)
+		var spd2 = 5.2 * (1.0 - maxf(0.0, fat2 - 40.0) / 140.0) * (0.8 if float(G["hp"]) < 40.0 else 1.0) * (0.9 if float(G["hunger"]) > 85.0 else 1.0)
 		if mode == "interior":
 			spd2 = 3.2
 		var vel := player.velocity

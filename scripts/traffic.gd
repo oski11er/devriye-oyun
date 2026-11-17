@@ -277,7 +277,7 @@ func _lane_off(k: int, c: NCar) -> float:
 	return (9.0 if c.hl else 3.2) if k == 0 else 3.5
 
 func _set_ni(c: NCar) -> void:
-	var p := c.pos.x if c.dir % 2 == 0 else c.pos.y
+	var p = c.pos.x if c.dir % 2 == 0 else c.pos.y
 	c.ni = (floorf(p / C.S) + 1) * C.S if c.dir < 2 else (ceilf(p / C.S) - 1) * C.S
 
 func _valid(c: NCar, d: int) -> bool:
@@ -295,11 +295,11 @@ func _target(c: NCar):
 	return m["p"]
 
 func _turn(c: NCar) -> void:
-	var mk := roundi(c.ni / C.S)
+	var mk = roundi(c.ni / C.S)
 	var opts: Array = [c.dir, (c.dir + 1) % 4, (c.dir + 3) % 4].filter(func(d): return _valid(c, d))
 	if opts.is_empty():
 		opts = [(c.dir + 2) % 4]
-	var nd := c.dir
+	var nd = c.dir
 	if c.flee or c.backup:
 		var tg = M.player_pos() if c.flee else _target(c)
 		var best := -1e9
@@ -319,10 +319,10 @@ func _turn(c: NCar) -> void:
 	if nd != c.dir:
 		if nd == (c.dir + 2) % 4:
 			if nd % 2 == 0:
-				var k := roundi(c.pos.y / C.S)
+				var k = roundi(c.pos.y / C.S)
 				c.pos.y = k * C.S + (_lane_off(k, c) if nd == 0 else -_lane_off(k, c))
 			else:
-				var k2 := roundi(c.pos.x / C.S)
+				var k2 = roundi(c.pos.x / C.S)
 				c.pos.x = k2 * C.S + (-3.5 if nd == 1 else 3.5)
 		elif nd % 2 == 1:
 			c.pos.x = mk * C.S + (-3.5 if nd == 1 else 3.5)
@@ -337,7 +337,7 @@ func _turn(c: NCar) -> void:
 func _place(c: NCar) -> void:
 	var dv: Vector2 = C.DV[c.dir]
 	var rt := Vector2(-dv.y, dv.x)
-	var pp := c.pos + rt * c.pull * 0.1
+	var pp = c.pos + rt * c.pull * 0.1
 	c.node.global_position = Vector3(pp.x, 0.0, pp.y)
 	c.node.rotation = Vector3(0.04 if c.wreck else 0.0, c.yaw, -0.03 if c.wreck else 0.0)
 
@@ -346,7 +346,7 @@ func upd_car(c: NCar, dt: float) -> void:
 		_place(c)
 		return
 	var dv: Vector2 = C.DV[c.dir]
-	var tv := c.base
+	var tv = c.base
 	if c.stopping or c.stopped:
 		tv = 0.0
 	if c.angry > 0:
@@ -365,12 +365,12 @@ func upd_car(c: NCar, dt: float) -> void:
 			if absf(r.x * dv.y - r.y * dv.x) < 1.6:
 				ahead = f
 		var pc: Vector2 = M.car_pos()
-		var r2 := pc - c.pos
+		var r2 = pc - c.pos
 		var f2 := r2.dot(dv)
 		if f2 > 0 and absf(r2.x * dv.y - r2.y * dv.x) < 2.0 and f2 < ahead:
 			ahead = f2
 		if M.mode == "foot":
-			var r3 := pp - c.pos
+			var r3 = pp - c.pos
 			var f3 := r3.dot(dv)
 			if f3 > 0 and absf(r3.x * dv.y - r3.y * dv.x) < 1.4 and f3 < ahead:
 				ahead = f3
@@ -396,15 +396,15 @@ func upd_car(c: NCar, dt: float) -> void:
 		c.stopping = false
 		c.stopped = true
 		c.v = 0.0
-	var step := c.v * dt
+	var step = c.v * dt
 	c.pos += dv * step
-	var p1 := c.pos.x if c.dir % 2 == 0 else c.pos.y
+	var p1 = c.pos.x if c.dir % 2 == 0 else c.pos.y
 	if (p1 - c.ni) * (1.0 if c.dir < 2 else -1.0) >= 0:
 		_turn(c)
 	c.yaw = lerp_angle(c.yaw, C.dir_yaw(c.dir), 1.0 - exp(-10.0 * dt))
 	_place(c)
 	if c.lb.size() == 2:
-		var on := c.backup
+		var on = c.backup
 		c.lb[0].material_override = M.lb_on_r if on else M.lb_off_r
 		c.lb[1].material_override = M.lb_on_b if on else M.lb_off_b
 
@@ -498,15 +498,15 @@ func make_ped(kind: String, p: Vector2, col: Color = Color(0, 0, 0, 0)) -> NPed:
 	return e
 
 func _place_ped(e: NPed) -> void:
-	var y := 0.0 if M.city.is_road(e.pos) else 0.18
+	var y = 0.0 if M.city.is_road(e.pos) else 0.18
 	e.node.global_position = Vector3(e.pos.x, y + (0.25 if e.down else 0.0), e.pos.y)
 	e.node.rotation = Vector3(0, C.yaw_of(e.face), PI / 2 if e.down else 0.0)
 
 func _walker_pos(e: NPed) -> Vector2:
-	var r := C.block_rect(e.bx, e.bz).grow(-1.4)
+	var r = C.block_rect(e.bx, e.bz).grow(-1.4)
 	var w := r.size.x
 	var h := r.size.y
-	var s := fposmod(e.s, e.per)
+	var s = fposmod(e.s, e.per)
 	if s < w:
 		return Vector2(r.position.x + s, r.position.y)
 	elif s < w + h:
@@ -550,7 +550,7 @@ func upd_ped(e: NPed, dt: float) -> void:
 		e.down_t -= dt
 		_place_ped(e)
 		return
-	var old := e.pos
+	var old = e.pos
 	match e.ai:
 		"walk":
 			e.s += e.ds * e.v * dt
@@ -561,18 +561,18 @@ func upd_ped(e: NPed, dt: float) -> void:
 			set_anim(e, "fight_idle")
 		"flee":
 			var pp: Vector2 = M.player_pos()
-			var away := e.pos - pp
+			var away = e.pos - pp
 			var dl := maxf(away.length(), 0.01)
 			e.stam -= dt
-			var spd := 5.6 if e.stam > 0 else 3.6
+			var spd = 5.6 if e.stam > 0 else 3.6
 			e.wa += (randf() - 0.5) * dt * 3.0
-			var mv := away / dl + Vector2(cos(e.wa), sin(e.wa)) * 0.55
+			var mv = away / dl + Vector2(cos(e.wa), sin(e.wa)) * 0.55
 			e.pos += mv.normalized() * spd * dt
 			var res: Array = M.city.collide_circle(e.pos, 0.4)
 			e.pos = res[0]
 			if res[1]:
 				e.wa += 1.6 * (1.0 if randf() < 0.5 else -1.0)
-	var mvd := e.pos - old
+	var mvd = e.pos - old
 	if mvd.length() > 0.001 and e.ai != "fight":
 		e.face = mvd.normalized()
 		set_anim(e, "run")
@@ -581,7 +581,7 @@ func upd_ped(e: NPed, dt: float) -> void:
 	# oyuncu aracı çarpması
 	if M.mode == "car" and e.ai != "held":
 		var cp: Vector2 = M.car_pos()
-		var d := e.pos.distance_to(cp)
+		var d = e.pos.distance_to(cp)
 		var spd2: float = M.car_speed()
 		if d < 1.6 and spd2 > 6.0:
 			M.game.hit_ped(e)

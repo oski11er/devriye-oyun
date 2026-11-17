@@ -99,7 +99,7 @@ func _plain(c: Color, rough: float, metal: float = 0.0) -> StandardMaterial3D:
 	return m
 
 func plain(c: Color, rough: float, metal: float = 0.0) -> StandardMaterial3D:
-	var key := "p" + c.to_html() + str(rough) + str(metal)
+	var key = "p" + c.to_html() + str(rough) + str(metal)
 	if not mat_cache.has(key):
 		mat_cache[key] = _plain(c, rough, metal)
 	return mat_cache[key]
@@ -141,9 +141,9 @@ func block_meta(c: Vector2i) -> Dictionary:
 		return meta[c]
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(c) ^ 0x51ED
-	var d := C.district_at(c.x, c.y)
-	var r := C.block_rect(c.x, c.y)
-	var md := {"d": d, "r": r, "lots": [], "b": [], "doors": [], "gas": null, "trees": [], "conts": []}
+	var d = C.district_at(c.x, c.y)
+	var r = C.block_rect(c.x, c.y)
+	var md = {"d": d, "r": r, "lots": [], "b": [], "doors": [], "gas": null, "trees": [], "conts": []}
 	var inner := Rect2(r.position + Vector2(3.5, 3.5), r.size - Vector2(7, 7))
 	var hx := inner.size.x * 0.5
 	var hz := inner.size.y * 0.5
@@ -382,7 +382,7 @@ func _building(node: Node3D, lt: Dictionary, rng: RandomNumberGenerator, wu: Arr
 	for i in rng.randi_range(1, 3):
 		_box("metal", pos + Vector3(rng.randf_range(-size.x * 0.3, size.x * 0.3), top + 0.65, rng.randf_range(-size.z * 0.3, size.z * 0.3)), Vector3(1.8, 1.3, 1.3))
 	if depo:
-		var fz := -1.0 if lt["iz"] == 0 else 1.0
+		var fz = -1.0 if lt["iz"] == 0 else 1.0
 		_box("dark", pos + Vector3(0, base + 2.2, fz * (size.z * 0.5 + 0.03)), Vector3(minf(6.0, size.x - 2), 4.4, 0.08))
 		for k in 5:
 			_box("metal", pos + Vector3(0, base + 0.4 + k * 0.88, fz * (size.z * 0.5 + 0.07)), Vector3(minf(6.0, size.x - 2), 0.05, 0.04))
@@ -405,7 +405,7 @@ func _windows(pos: Vector3, size: Vector3, base: float, rng: RandomNumberGenerat
 	var rows := int((size.y - 5.0) / 3.4)
 	if depo:
 		rows = 1
-	var faces := [[Vector3(0, 0, 1), size.x, size.z], [Vector3(0, 0, -1), size.x, size.z], [Vector3(1, 0, 0), size.z, size.x], [Vector3(-1, 0, 0), size.z, size.x]]
+	var faces = [[Vector3(0, 0, 1), size.x, size.z], [Vector3(0, 0, -1), size.x, size.z], [Vector3(1, 0, 0), size.z, size.x], [Vector3(-1, 0, 0), size.z, size.x]]
 	for f in faces:
 		var nrm: Vector3 = f[0]
 		var flen: float = f[1]
@@ -433,7 +433,7 @@ func _door(node: Node3D, door: Dictionary) -> void:
 	var p: Vector2 = door["p"]
 	var o: float = door["out"]
 	var fz := p.y - o * 0.9
-	var dc := "navy" if door["kind"] == "karakol" else ("store" if door["kind"] == "shop" else "wood")
+	var dc = "navy" if door["kind"] == "karakol" else ("store" if door["kind"] == "shop" else "wood")
 	_box("dark", Vector3(p.x, 1.4, fz + o * 0.05), Vector3(2.2, 2.6, 0.12))
 	_box(dc, Vector3(p.x, 1.32, fz + o * 0.09), Vector3(1.9, 2.3, 0.08))
 	if door["kind"] == "shop":
@@ -498,12 +498,12 @@ func _roads(node: Node3D, c: Vector2i, r: Rect2) -> void:
 		_stripe.size = Vector3(0.55, 0.02, 3.0)
 	var dx: Array = []
 	var cw: Array = []
-	var vx := c.x * C.S
+	var vx = c.x * C.S
 	var t := r.position.y + 6.0
 	while t < r.end.y - 6.0:
 		dx.append(Transform3D(Basis(), Vector3(vx, 0.012, t)))
 		t += 7.0
-	var hz := c.y * C.S
+	var hz = c.y * C.S
 	t = r.position.x + 6.0
 	while t < r.end.x - 6.0:
 		if c.y == 0:
@@ -579,7 +579,7 @@ func _lamps(node: Node3D, r: Rect2) -> void:
 	var hx: Array = []
 	var pts: Array = []
 	for cc in [[r.position.x + 0.8, r.position.y + 0.8, -1.0], [r.end.x - 0.8, r.end.y - 0.8, 1.0], [r.get_center().x, r.position.y + 0.8, -1.0], [r.get_center().x, r.end.y - 0.8, 1.0]]:
-		var p := Vector3(cc[0], 0.18, cc[1])
+		var p = Vector3(cc[0], 0.18, cc[1])
 		var dz: float = cc[2]
 		px.append(Transform3D(Basis(), p + Vector3(0, 3.5, 0)))
 		ax.append(Transform3D(Basis(), p + Vector3(0, 6.9, dz * 0.9)))
@@ -622,11 +622,11 @@ func collide_circle(p: Vector2, r: float) -> Array:
 			continue
 		var n := Vector2(clampf(p.x, rc.position.x, rc.end.x), clampf(p.y, rc.position.y, rc.end.y))
 		var d := p - n
-		var l := d.length()
+		var l = d.length()
 		if l < 0.0001:
-			var e := [p.x - rc.position.x, rc.end.x - p.x, p.y - rc.position.y, rc.end.y - p.y]
+			var e = [p.x - rc.position.x, rc.end.x - p.x, p.y - rc.position.y, rc.end.y - p.y]
 			var m: float = e.min()
-			var ix := e.find(m)
+			var ix = e.find(m)
 			if ix == 0: p.x = rc.position.x - r
 			elif ix == 1: p.x = rc.end.x + r
 			elif ix == 2: p.y = rc.position.y - r
@@ -685,7 +685,7 @@ func find_door(kind: String, region: String, from: Vector2, min_d: float = 60.0,
 		if ds.is_empty():
 			continue
 		var d: Dictionary = C.pick(ds)
-		var dd := (d["p"] as Vector2).distance_to(from)
+		var dd = (d["p"] as Vector2).distance_to(from)
 		if dd < min_d or dd > max_d:
 			continue
 		return d
