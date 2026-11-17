@@ -86,7 +86,7 @@ for name, (prefs, kws) in HDRIS.items():
 
 # ---- foto-taranmış 3D modeller (glTF) -> assets/props/<rol>/<rol>.gltf
 PROPS = {
-    'bench':   (['park_bench', 'bench'], ['picnic', 'table']),
+    'bench':   (['park_bench', 'bench'], ['picnic', 'table', 'vice', 'work', 'tool']),
     'bin':     (['trash_can', 'trashcan', 'trash_bin', 'garbage', 'waste_bin', 'dustbin', 'bin_'], ['cabinet']),
     'hydrant': (['fire_hydrant', 'hydrant'], []),
     'planter': (['planter', 'potted_plant'], []),
