@@ -26,7 +26,12 @@ jobs:
       - name: APK derle (release, R8 optimizasyonlu)
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease
+          ./gradlew --no-daemon testReleaseUnitTest assembleRelease
+
+      - name: Test çıktısı
+        if: always()
+        run: |
+          find app/build/test-results -name "*.xml" -exec sed -n '/<system-out>/,/<\/system-out>/p' {} \; | head -200 || true
 
       - name: APK'yı yeniden adlandır
         run: |
