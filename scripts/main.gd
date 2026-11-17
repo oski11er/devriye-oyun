@@ -54,6 +54,7 @@ var win_unlit: Array = []
 var win_lit: Array = []
 var win_frames: Array = []
 var driver_seat := Vector3(0.36, 1.12, -0.15)
+var car_mesh_cache := {}
 
 # ---------------------------------------------------------------- yardımcılar
 func tex(n: String) -> Texture2D:
@@ -211,8 +212,8 @@ func _setup_env() -> void:
 	sun.light_energy = 2.0
 	sun.light_color = Color(1.0, 0.95, 0.86)
 	sun.rotation_degrees = Vector3(-40, -32, 0)
-	sun.directional_shadow_max_distance = 150.0
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	sun.directional_shadow_max_distance = 110.0
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun.shadow_blur = 1.4
 	add_child(sun)
 
@@ -575,12 +576,43 @@ func _paint_car(inst: Node, c1: Color, c2: Color) -> void:
 			elif nm.begins_with("Glass"):
 				m.set_surface_override_material(i, gl)
 
+func _merge(root: Node3D) -> ArrayMesh:
+	var by_mat := {}
+	var order: Array = []
+	for mi in root.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if m.mesh == null:
+			continue
+		var xf := _xform_to(m, root)
+		for i in m.mesh.get_surface_count():
+			var mat: Material = m.get_active_material(i)
+			if not by_mat.has(mat):
+				var st := SurfaceTool.new()
+				st.begin(Mesh.PRIMITIVE_TRIANGLES)
+				by_mat[mat] = st
+				order.append(mat)
+			(by_mat[mat] as SurfaceTool).append_from(m.mesh, i, xf)
+	var am := ArrayMesh.new()
+	for mat in order:
+		(by_mat[mat] as SurfaceTool).commit(am)
+		am.surface_set_material(am.get_surface_count() - 1, mat)
+	return am
+
 func _car_visual(police: bool, c1: Color, c2: Color) -> Node3D:
 	if car_scene == null:
 		car_scene = load("res://assets/models/car.glb")
-	var inst: Node3D = car_scene.instantiate()
-	_paint_car(inst, c1, c2)
-	var root := _fit(inst, 4.45, "Headlight")
+	var key := c1.to_html() + c2.to_html()
+	if not car_mesh_cache.has(key):
+		var inst: Node3D = car_scene.instantiate()
+		_paint_car(inst, c1, c2)
+		var tmp := _fit(inst, 4.45, "Headlight")
+		car_mesh_cache[key] = [_merge(tmp), tmp.get_meta("aabb")]
+		tmp.free()
+	var root := Node3D.new()
+	var body := MeshInstance3D.new()
+	body.mesh = car_mesh_cache[key][0]
+	root.add_child(body)
+	root.set_meta("aabb", car_mesh_cache[key][1])
 	if police:
 		var a: AABB = root.get_meta("aabb")
 		var top := a.size.y
