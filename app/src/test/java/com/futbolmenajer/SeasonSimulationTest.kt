@@ -24,7 +24,7 @@ class SeasonSimulationTest {
         println("Serbest: " + TransferMarket.negotiateTerms(gs, o.id, d.copy(weeklyWage = d.weeklyWage * 2, agentFee = d.agentFee * 2)).message)
         // bonservis teklifi
         val target = gs.clubs.values.first { it.name == "Trabzonspor" }.playerIds.mapNotNull { gs.players[it] }.maxByOrNull { it.overall }!!
-        TransferMarket.submitOffer(gs, target.id, OfferType.TRANSFER, TransferMarket.askingPrice(gs, target) * 2).getOrThrow()
+        println("Bonservis: " + TransferMarket.submitOffer(gs, target.id, OfferType.TRANSFER, minOf(gs.userClub.finances.transferBudget, TransferMarket.askingPrice(gs, target))).fold({ "gönderildi" }, { it.message }))
         // takas teklifi
         val swapTarget = gs.clubs.values.first { it.name == "Beşiktaş" }.playerIds.mapNotNull { gs.players[it] }.first()
         TransferMarket.submitOffer(gs, swapTarget.id, OfferType.SWAP, 1_000_000, swapIds = listOf(gs.userClub.playerIds.last()))
