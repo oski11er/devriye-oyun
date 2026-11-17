@@ -1,96 +1,89 @@
 extends Node3D
-## Devriye: Şehrin Nabzı — native 3D prototip (Godot 4.3)
-## Fotogerçekçi PBR şehir, fizikli polis aracı, animasyonlu memur, 1./3. şahıs kamera, dokunmatik yön tuşları.
+## Devriye: Şehrin Nabzı — native 3D (Godot 4.3)
+## Ana düğüm: ortam, oyuncu aracı ve memur, kameralar, gün döngüsü, hava, ses, iç mekân.
 
-const T := "res://assets/tex/"
-const BLK := 64.0
-const ROAD := 14.0
-const NB := 3
-
+var city
+var traffic
+var game
+var ui
 var env: Environment
 var sun: DirectionalLight3D
 var sky_day: Sky
 var sky_night: Sky
 var car: VehicleBody3D
+var car_type := "sedan"
+var car_vis: Node3D
 var car_scene: PackedScene
 var human_scene: PackedScene
+var car_mesh_cache := {}
+var lb_on_r: StandardMaterial3D
+var lb_on_b: StandardMaterial3D
+var lb_off_r: StandardMaterial3D
+var lb_off_b: StandardMaterial3D
+var my_lb: Array = []
 var lb_r: OmniLight3D
 var lb_b: OmniLight3D
-var lb_mat_r := StandardMaterial3D.new()
-var lb_mat_b := StandardMaterial3D.new()
 var head_l: SpotLight3D
 var head_r: SpotLight3D
 var player: CharacterBody3D
 var pvis: Node3D
 var panim: AnimationPlayer
+var pbody_mat := StandardMaterial3D.new()
 var cam: Camera3D
-var mode := "car"
-var view := "tps"
+var mode := "car"          # car / foot / interior
+var view := "tps"          # tps / fps / top
 var siren := false
-var night := false
+var lights_on := false
+var weather := "clear"
 var steer := 0.0
 var cam_yaw := 0.0
 var cam_pitch := -0.15
 var cam_free := 0.0
+var shake := 0.0
 var joy_vec := Vector2.ZERO
-var joy_id := -1
-var joy_origin := Vector2.ZERO
-var look_id := -1
-var look_last := Vector2.ZERO
-var ui_layer: CanvasLayer
-var hud: Label
-var btns := {}
-var joy_ctrl: Control
-var mat_cache := {}
-var glass: StandardMaterial3D
-var glass_lit: StandardMaterial3D
-var lamp_head: StandardMaterial3D
-var lamp_lights: Array = []
-var shots := false
+var lamp_pool: Array = []
+var lamp_t := 0.0
+var rain: GPUParticles3D
 var t_acc := 0.0
-var cam_override := false
-var _sts := {}
-var win_unlit: Array = []
-var win_lit: Array = []
-var win_frames: Array = []
+var prev_vel := Vector3.ZERO
+var fuel := 100.0
+var tire := 100.0
+var dmg := 0.0
+var interior: Node3D
+var title_ang := 0.0
+var shots := false
+var snd_siren: AudioStreamPlayer
+var snd_horn: AudioStreamPlayer
+var snd_beep: AudioStreamPlayer
+var horn_down := false
 var driver_seat := Vector3(0.36, 1.12, -0.15)
-var car_mesh_cache := {}
+var quality := "medium"
+
+func quality_name() -> String:
+	return {"high": "Yüksek", "medium": "Orta", "low": "Düşük"}[quality]
+
+func cycle_quality() -> void:
+	quality = {"high": "medium", "medium": "low", "low": "high"}[quality]
+	apply_quality()
+	var f := FileAccess.open("user://quality.txt", FileAccess.WRITE)
+	if f:
+		f.store_string(quality)
+
+func apply_quality() -> void:
+	var vp := get_viewport()
+	vp.scaling_3d_scale = {"high": 1.0, "medium": 0.85, "low": 0.7}[quality]
+	vp.msaa_3d = Viewport.MSAA_2X if quality == "high" else Viewport.MSAA_DISABLED
+	sun.directional_shadow_max_distance = {"high": 140.0, "medium": 100.0, "low": 60.0}[quality]
+	env.glow_enabled = quality != "low"
+	for i in lamp_pool.size():
+		(lamp_pool[i] as OmniLight3D).set_meta("allowed", i < {"high": 8, "medium": 6, "low": 3}[quality])
 
 # ---------------------------------------------------------------- yardımcılar
 func tex(n: String) -> Texture2D:
-	var p := T + n
+	var p := "res://assets/tex/" + n
 	if ResourceLoader.exists(p):
 		return load(p)
 	return null
-
-func pbr(role: String, scale: float, tint: Color = Color.WHITE, fallback: Color = Color(0.5, 0.5, 0.5)) -> StandardMaterial3D:
-	var key := role + str(scale) + tint.to_html()
-	if mat_cache.has(key):
-		return mat_cache[key]
-	var m := StandardMaterial3D.new()
-	var d := tex(role + "_diff.jpg")
-	if d:
-		m.albedo_texture = d
-		m.albedo_color = tint
-	else:
-		m.albedo_color = fallback * tint
-	var n := tex(role + "_nor.jpg")
-	if n:
-		m.normal_enabled = true
-		m.normal_texture = n
-	var r := tex(role + "_rough.jpg")
-	if r:
-		m.roughness_texture = r
-		m.roughness = 1.0
-	else:
-		m.roughness = 0.85
-	m.uv1_triplanar = true
-	m.uv1_world_triplanar = true
-	m.uv1_scale = Vector3.ONE * scale
-	m.uv1_triplanar_sharpness = 4.0
-	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-	mat_cache[key] = m
-	return m
 
 func plain(c: Color, rough: float, metal: float = 0.0) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
@@ -108,7 +101,7 @@ func _xform_to(n: Node3D, anc: Node3D) -> Transform3D:
 		cur = cur.get_parent()
 	return xf
 
-func _aabb(n: Node, anc: Node3D, filter: String = "") -> AABB:
+func aabb_of(n: Node, anc: Node3D, filter: String = "") -> AABB:
 	var out := AABB()
 	var first := true
 	for mi in n.find_children("*", "MeshInstance3D", true, false):
@@ -132,30 +125,85 @@ func _has_mat(m: MeshInstance3D, filter: String) -> bool:
 			return true
 	return false
 
+func player_pos() -> Vector2:
+	if mode == "car":
+		return Vector2(car.global_position.x, car.global_position.z)
+	return Vector2(player.global_position.x, player.global_position.z)
+
+func car_pos() -> Vector2:
+	return Vector2(car.global_position.x, car.global_position.z)
+
+func car_speed() -> float:
+	return car.linear_velocity.length()
+
+func car_fwd() -> Vector2:
+	var z := car.global_transform.basis.z
+	return Vector2(z.x, z.z).normalized()
+
+func player_yaw() -> float:
+	if mode == "car":
+		var z := car.global_transform.basis.z
+		return atan2(z.x, z.z)
+	return pvis.rotation.y
+
 # ---------------------------------------------------------------- kurulum
 func _ready() -> void:
 	shots = "--shots" in OS.get_cmdline_user_args()
 	if shots:
 		DisplayServer.window_set_size(Vector2i(1280, 720))
+	randomize()
 	_setup_input()
 	_setup_env()
 	_setup_materials()
-	_build_city()
-	_spawn_car(Vector3(BLK * 0.5, 0.6, ROAD * 0.25 + 0.2), PI / 2)
-	_spawn_player(Vector3(BLK * 0.5 - 6, 0.5, ROAD * 0.5 + 2.5))
-	_spawn_extras()
+	_setup_audio()
+	city = preload("res://scripts/city.gd").new()
+	add_child(city)
+	city.setup(self)
+	traffic = preload("res://scripts/traffic.gd").new()
+	add_child(traffic)
+	traffic.setup(self)
+	game = preload("res://scripts/game.gd").new()
+	add_child(game)
+	_spawn_player(Vector3(20, 0.5, 60))
+	spawn_car("sedan", Vector3(20, 0.6, 67.5), PI / 2)
 	cam = Camera3D.new()
 	cam.fov = 68.0
 	cam.far = 900.0
 	add_child(cam)
 	cam.current = true
-	_build_ui()
-	_set_mode("car")
+	_setup_rain()
+	for i in 8:
+		var l := OmniLight3D.new()
+		l.light_color = Color(1.0, 0.82, 0.55)
+		l.light_energy = 3.0
+		l.omni_range = 17.0
+		l.omni_attenuation = 1.2
+		l.visible = false
+		add_child(l)
+		lamp_pool.append(l)
+	ui = preload("res://scripts/ui.gd").new()
+	add_child(ui)
+	ui.setup(self)
+	game.setup(self)
+	if FileAccess.file_exists("user://quality.txt"):
+		var qf := FileAccess.open("user://quality.txt", FileAccess.READ)
+		var q := qf.get_as_text().strip_edges()
+		if q in ["high", "medium", "low"]:
+			quality = q
+	elif OS.get_name() != "Android":
+		quality = "high"
+	apply_quality()
+	set_mode("car")
+	city.update_stream(player_pos(), 0.0, true)
 	if shots:
-		_run_shots()
+		var t = preload("res://scripts/autotest.gd").new()
+		add_child(t)
+		t.run(self)
+	else:
+		game.title_screen()
 
 func _setup_input() -> void:
-	var keys := {"steer_left": [KEY_LEFT, KEY_A], "steer_right": [KEY_RIGHT, KEY_D], "gas": [KEY_UP, KEY_W], "brake": [KEY_DOWN, KEY_S], "hand": [KEY_SPACE]}
+	var keys := {"steer_left": [KEY_LEFT, KEY_A], "steer_right": [KEY_RIGHT, KEY_D], "gas": [KEY_UP, KEY_W], "brake": [KEY_DOWN, KEY_S], "hand": [KEY_SPACE], "horn": [KEY_H]}
 	for a in keys.keys():
 		if not InputMap.has_action(a):
 			InputMap.add_action(a)
@@ -210,343 +258,129 @@ func _setup_env() -> void:
 	sun = DirectionalLight3D.new()
 	sun.shadow_enabled = true
 	sun.light_energy = 2.0
-	sun.light_color = Color(1.0, 0.95, 0.86)
-	sun.rotation_degrees = Vector3(-40, -32, 0)
 	sun.directional_shadow_max_distance = 110.0
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun.shadow_blur = 1.4
 	add_child(sun)
 
 func _setup_materials() -> void:
-	glass = plain(Color(0.06, 0.08, 0.1), 0.05, 0.9)
-	glass_lit = plain(Color(0.08, 0.08, 0.08), 0.08, 0.6)
-	glass_lit.emission_enabled = true
-	glass_lit.emission = Color(1.0, 0.8, 0.52)
-	glass_lit.emission_energy_multiplier = 0.0
-	lamp_head = plain(Color(0.9, 0.9, 0.85), 0.3)
-	lamp_head.emission_enabled = true
-	lamp_head.emission = Color(1.0, 0.86, 0.6)
-	lamp_head.emission_energy_multiplier = 0.2
-	for m in [lb_mat_r, lb_mat_b]:
-		m.emission_enabled = true
-	lb_mat_r.albedo_color = Color(0.4, 0, 0)
-	lb_mat_r.emission = Color(1, 0.05, 0.05)
-	lb_mat_b.albedo_color = Color(0, 0, 0.4)
-	lb_mat_b.emission = Color(0.1, 0.25, 1)
+	lb_on_r = plain(Color(0.6, 0, 0), 0.3)
+	lb_on_r.emission_enabled = true
+	lb_on_r.emission = Color(1, 0.05, 0.05)
+	lb_on_r.emission_energy_multiplier = 6.0
+	lb_on_b = plain(Color(0, 0, 0.6), 0.3)
+	lb_on_b.emission_enabled = true
+	lb_on_b.emission = Color(0.1, 0.25, 1)
+	lb_on_b.emission_energy_multiplier = 6.0
+	lb_off_r = plain(Color(0.35, 0.03, 0.03), 0.3)
+	lb_off_b = plain(Color(0.03, 0.05, 0.35), 0.3)
 
-# ---------------------------------------------------------------- şehir
-func _st(key: String) -> SurfaceTool:
-	if not _sts.has(key):
-		var s := SurfaceTool.new()
-		s.begin(Mesh.PRIMITIVE_TRIANGLES)
-		_sts[key] = s
-	return _sts[key]
+func _setup_rain() -> void:
+	rain = GPUParticles3D.new()
+	rain.amount = 1400
+	rain.lifetime = 1.2
+	rain.visibility_aabb = AABB(Vector3(-30, -20, -30), Vector3(60, 40, 60))
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(25, 1, 25)
+	pm.direction = Vector3(0.1, -1, 0)
+	pm.spread = 3.0
+	pm.initial_velocity_min = 22.0
+	pm.initial_velocity_max = 28.0
+	pm.gravity = Vector3(0, -9.8, 0)
+	rain.process_material = pm
+	var dm := BoxMesh.new()
+	dm.size = Vector3(0.015, 0.55, 0.015)
+	var mm := StandardMaterial3D.new()
+	mm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mm.albedo_color = Color(0.75, 0.82, 0.95, 0.35)
+	mm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dm.material = mm
+	rain.draw_pass_1 = dm
+	rain.emitting = false
+	add_child(rain)
 
-func add_box(key: String, center: Vector3, size: Vector3, collide: bool = false) -> void:
-	var bm := BoxMesh.new()
-	bm.size = size
-	_st(key).append_from(bm, 0, Transform3D(Basis(), center))
-	if collide:
-		var sb := StaticBody3D.new()
-		sb.position = center
-		var cs := CollisionShape3D.new()
-		var bs := BoxShape3D.new()
-		bs.size = size
-		cs.shape = bs
-		sb.add_child(cs)
-		add_child(sb)
+# ---------------------------------------------------------------- ses (prosedürel)
+func _wav(gen: Callable, secs: float, loop: bool) -> AudioStreamWAV:
+	var rate := 22050
+	var n := int(rate * secs)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	var ph := 0.0
+	for i in n:
+		var t := float(i) / rate
+		var f: float = gen.call(t)
+		ph += TAU * f / rate
+		var s := clampf(sin(ph) * 1.6, -1.0, 1.0) * 0.5
+		data.encode_s16(i * 2, int(s * 32767.0))
+	var w := AudioStreamWAV.new()
+	w.format = AudioStreamWAV.FORMAT_16_BITS
+	w.mix_rate = rate
+	w.data = data
+	if loop:
+		w.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		w.loop_end = n
+	return w
 
-func add_mesh(key: String, mesh: Mesh, xf: Transform3D) -> void:
-	_st(key).append_from(mesh, 0, xf)
+func _setup_audio() -> void:
+	snd_siren = AudioStreamPlayer.new()
+	snd_siren.stream = _wav(func(t): return 750.0 + 550.0 * (0.5 - 0.5 * cos(t / 2.4 * TAU)), 2.4, true)
+	snd_siren.volume_db = -14.0
+	add_child(snd_siren)
+	snd_horn = AudioStreamPlayer.new()
+	snd_horn.stream = _wav(func(t): return 330.0 + 85.0 * float(int(t * 660.0) % 2), 0.5, true)
+	snd_horn.volume_db = -12.0
+	add_child(snd_horn)
+	snd_beep = AudioStreamPlayer.new()
+	snd_beep.stream = _wav(func(t): return 1200.0 if t < 0.08 else 1600.0, 0.2, false)
+	snd_beep.volume_db = -16.0
+	add_child(snd_beep)
 
-func _city_mat(key: String) -> Material:
-	match key:
-		"pave": return pbr("pavement", 0.35, Color(0.95, 0.95, 0.93), Color(0.62, 0.61, 0.58))
-		"brick": return pbr("brick", 0.4, Color(1, 1, 1), Color(0.55, 0.3, 0.24))
-		"plaster": return pbr("plaster", 0.3, Color(0.96, 0.93, 0.86), Color(0.85, 0.82, 0.75))
-		"plaster_blue": return pbr("plaster", 0.3, Color(0.75, 0.84, 1.0), Color(0.7, 0.78, 0.9))
-		"concrete": return pbr("concrete", 0.3, Color(0.92, 0.92, 0.92), Color(0.6, 0.6, 0.6))
-		"grass": return pbr("grass", 0.25, Color(0.85, 1.0, 0.8), Color(0.25, 0.42, 0.18))
-		"store": return glass
-		"trim": return plain(Color(0.78, 0.77, 0.74), 0.7)
-		"roof": return pbr("concrete", 0.3, Color(0.55, 0.55, 0.57), Color(0.35, 0.35, 0.36))
-		"metal": return plain(Color(0.6, 0.62, 0.64), 0.4, 0.6)
-		"dark": return plain(Color(0.12, 0.13, 0.14), 0.5, 0.3)
-		"white": return plain(Color(0.92, 0.92, 0.9), 0.6)
-		"yellow": return plain(Color(0.9, 0.7, 0.12), 0.6)
-		"bark": return plain(Color(0.3, 0.22, 0.15), 0.9)
-		"leaf": return plain(Color(0.2, 0.36, 0.14), 0.85)
-		"navy": return plain(Color(0.08, 0.16, 0.38), 0.5)
-	return plain(Color.MAGENTA, 0.5)
+func beep() -> void:
+	snd_beep.play()
 
-func _flush(cast: bool = true) -> void:
-	var am := ArrayMesh.new()
-	for key in _sts.keys():
-		var s: SurfaceTool = _sts[key]
-		s.commit(am)
-		am.surface_set_material(am.get_surface_count() - 1, _city_mat(key))
-	_sts.clear()
-	var mi := MeshInstance3D.new()
-	mi.mesh = am
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if cast else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(mi)
-
-func _build_city() -> void:
-	var size := BLK * NB * 2 + 400.0
-	var g := MeshInstance3D.new()
-	var pm := PlaneMesh.new()
-	pm.size = Vector2(size, size)
-	g.mesh = pm
-	g.material_override = pbr("asphalt", 0.18, Color(0.85, 0.85, 0.85), Color(0.2, 0.2, 0.21))
-	add_child(g)
-	var sb := StaticBody3D.new()
-	var cs := CollisionShape3D.new()
-	cs.shape = WorldBoundaryShape3D.new()
-	sb.add_child(cs)
-	add_child(sb)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 1337
-	for bx in range(-NB, NB):
-		for bz in range(-NB, NB):
-			_build_block(bx, bz, rng)
-	_build_windows()
-	_build_markings()
-	_build_lamps()
-
-func _build_block(bx: int, bz: int, rng: RandomNumberGenerator) -> void:
-	var x0 := bx * BLK + ROAD * 0.5
-	var z0 := bz * BLK + ROAD * 0.5
-	var w := BLK - ROAD
-	var cx := x0 + w * 0.5
-	var cz := z0 + w * 0.5
-	add_box("pave", Vector3(cx, 0.09, cz), Vector3(w, 0.18, w), true)
-	# bordür taşı
-	for s in [-1.0, 1.0]:
-		add_box("trim", Vector3(cx, 0.1, cz + s * (w * 0.5 - 0.15)), Vector3(w, 0.2, 0.3))
-		add_box("trim", Vector3(cx + s * (w * 0.5 - 0.15), 0.1, cz), Vector3(0.3, 0.2, w))
-	var station := bx == 0 and bz == 0
-	if not station and rng.randf() < 0.14:
-		add_box("grass", Vector3(cx, 0.19, cz), Vector3(w - 8, 0.03, w - 8))
-		for i in 7:
-			_tree(Vector3(cx + rng.randf_range(-18, 18), 0.2, cz + rng.randf_range(-18, 18)), rng)
-		_flush()
-		return
-	var inner := w - 7.0
-	var half := inner * 0.5
-	for ix in 2:
-		for iz in 2:
-			var lc := Vector3(x0 + 3.5 + ix * half + half * 0.5, 0, z0 + 3.5 + iz * half + half * 0.5)
-			var far := absi(bx) + absi(bz) > 2
-			var h := rng.randf_range(9.0, 16.0) if far else rng.randf_range(13.0, 40.0)
-			var bw := half - rng.randf_range(0.5, 2.5)
-			var bd := half - rng.randf_range(0.5, 2.5)
-			var mk: String = ["brick", "plaster", "concrete", "brick"][rng.randi() % 4]
-			if station and ix == 0 and iz == 0:
-				_building(lc, Vector3(half - 0.5, 12.0, half - 0.5), "plaster_blue", rng, true)
-			else:
-				_building(lc, Vector3(bw, h, bd), mk, rng, false)
-	# kaldırım ağaçları
-	for i in 4:
-		var side := i % 4
-		var p := Vector3(cx, 0.18, cz)
-		var off := w * 0.5 - 1.6
-		var along := rng.randf_range(-w * 0.4, w * 0.4)
-		match side:
-			0: p += Vector3(along, 0, -off)
-			1: p += Vector3(along, 0, off)
-			2: p += Vector3(-off, 0, along)
-			3: p += Vector3(off, 0, along)
-		_tree(p, rng)
-	_flush()
-
-func _building(pos: Vector3, size: Vector3, mk: String, rng: RandomNumberGenerator, station: bool) -> void:
-	var base := 0.18
-	add_box(mk, pos + Vector3(0, base + size.y * 0.5, 0), size, true)
-	add_box("store", pos + Vector3(0, base + 1.7, 0), Vector3(size.x + 0.1, 3.3, size.z + 0.1))
-	add_box("trim", pos + Vector3(0, base + 3.55, 0), Vector3(size.x + 0.35, 0.4, size.z + 0.35))
-	var top := base + size.y
-	add_box("roof", pos + Vector3(0, top + 0.02, 0), Vector3(size.x - 0.1, 0.04, size.z - 0.1))
-	for s in [-1.0, 1.0]:
-		add_box("trim", pos + Vector3(0, top + 0.45, s * (size.z * 0.5 - 0.15)), Vector3(size.x, 0.9, 0.3))
-		add_box("trim", pos + Vector3(s * (size.x * 0.5 - 0.15), top + 0.45, 0), Vector3(0.3, 0.9, size.z))
-	for i in rng.randi_range(1, 3):
-		add_box("metal", pos + Vector3(rng.randf_range(-size.x * 0.3, size.x * 0.3), top + 0.65, rng.randf_range(-size.z * 0.3, size.z * 0.3)), Vector3(1.8, 1.3, 1.3))
-	if station:
-		add_box("navy", pos + Vector3(0, base + 4.2, 0), Vector3(size.x + 0.4, 0.9, size.z + 0.4))
-		var lbl := Label3D.new()
-		lbl.text = "POLİS"
-		lbl.font_size = 220
-		lbl.pixel_size = 0.012
-		lbl.outline_size = 24
-		lbl.modulate = Color(1, 1, 1)
-		lbl.outline_modulate = Color(0.05, 0.15, 0.45)
-		lbl.position = pos + Vector3(0, base + 6.0, -size.z * 0.5 - 0.3)
-		lbl.rotation.y = PI
-		add_child(lbl)
-		var lbl2 := lbl.duplicate() as Label3D
-		lbl2.position = pos + Vector3(-size.x * 0.5 - 0.3, base + 6.0, 0)
-		lbl2.rotation.y = -PI / 2
-		add_child(lbl2)
-	_windows(pos, size, base, rng)
-
-func _windows(pos: Vector3, size: Vector3, base: float, rng: RandomNumberGenerator) -> void:
-	var rows := int((size.y - 5.0) / 3.4)
-	var faces := [[Vector3(0, 0, 1), size.x, size.z], [Vector3(0, 0, -1), size.x, size.z], [Vector3(1, 0, 0), size.z, size.x], [Vector3(-1, 0, 0), size.z, size.x]]
-	for f in faces:
-		var nrm: Vector3 = f[0]
-		var flen: float = f[1]
-		var depth: float = f[2]
-		var cols := int((flen - 1.5) / 3.1)
-		if cols < 1:
-			continue
-		var bas := Basis(Vector3.UP, atan2(nrm.x, nrm.z))
-		var tangent := bas.x
-		for r in rows:
-			for c in cols:
-				var u := (c - (cols - 1) * 0.5) * 3.1
-				var y := base + 5.2 + r * 3.4
-				var p := pos + nrm * (depth * 0.5 + 0.02) + tangent * u + Vector3(0, y, 0)
-				var xf := Transform3D(bas, p)
-				win_frames.append(Transform3D(bas, p - nrm * 0.01))
-				if rng.randf() < 0.38:
-					win_lit.append(xf)
-				else:
-					win_unlit.append(xf)
-
-func _mm(mesh: Mesh, xfs: Array, mat: Material, cast: bool) -> void:
-	if xfs.is_empty():
-		return
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = mesh
-	mm.instance_count = xfs.size()
-	for i in xfs.size():
-		mm.set_instance_transform(i, xfs[i])
-	var mmi := MultiMeshInstance3D.new()
-	mmi.multimesh = mm
-	mmi.material_override = mat
-	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if cast else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(mmi)
-
-func _build_windows() -> void:
-	var wm := BoxMesh.new()
-	wm.size = Vector3(1.35, 1.8, 0.1)
-	var fm := BoxMesh.new()
-	fm.size = Vector3(1.6, 2.05, 0.08)
-	_mm(fm, win_frames, plain(Color(0.2, 0.2, 0.21), 0.45, 0.5), false)
-	_mm(wm, win_unlit, glass, false)
-	_mm(wm, win_lit, glass_lit, false)
-
-func _tree(p: Vector3, rng: RandomNumberGenerator) -> void:
-	var h := rng.randf_range(3.0, 4.5)
-	var trunk := CylinderMesh.new()
-	trunk.top_radius = 0.12
-	trunk.bottom_radius = 0.18
-	trunk.height = h
-	trunk.radial_segments = 8
-	add_mesh("bark", trunk, Transform3D(Basis(), p + Vector3(0, h * 0.5, 0)))
-	for i in 3:
-		var s := SphereMesh.new()
-		var r := rng.randf_range(1.2, 1.8)
-		s.radius = r
-		s.height = r * 1.7
-		s.radial_segments = 10
-		s.rings = 6
-		add_mesh("leaf", s, Transform3D(Basis(), p + Vector3(rng.randf_range(-0.6, 0.6), h + rng.randf_range(-0.3, 0.8), rng.randf_range(-0.6, 0.6))))
-
-func _build_markings() -> void:
-	var dash := BoxMesh.new()
-	dash.size = Vector3(0.15, 0.02, 3.0)
-	var stripe := BoxMesh.new()
-	stripe.size = Vector3(0.55, 0.02, 3.2)
-	var xs: Array = []
-	var cw: Array = []
-	var ext := NB * BLK
-	for k in range(-NB, NB + 1):
-		var c := k * BLK
-		var t := -ext
-		while t < ext:
-			var near := false
-			for j in range(-NB, NB + 1):
-				if absf(t - j * BLK) < ROAD * 0.5 + 4.5:
-					near = true
-			if not near:
-				xs.append(Transform3D(Basis(), Vector3(c, 0.012, t)))
-				xs.append(Transform3D(Basis(Vector3.UP, PI / 2), Vector3(t, 0.012, c)))
-			t += 7.0
-		for j in range(-NB, NB + 1):
-			var ic := Vector3(c, 0.013, j * BLK)
-			for s in [-1.0, 1.0]:
-				for i in 8:
-					var o := (i - 3.5) * 1.5
-					cw.append(Transform3D(Basis(), ic + Vector3(o, 0, s * (ROAD * 0.5 + 2.2))))
-					cw.append(Transform3D(Basis(Vector3.UP, PI / 2), ic + Vector3(s * (ROAD * 0.5 + 2.2), 0, o)))
-	var wmat := plain(Color(0.9, 0.9, 0.86), 0.55)
-	_mm(dash, xs, wmat, false)
-	_mm(stripe, cw, wmat, false)
-
-func _build_lamps() -> void:
-	var pole := CylinderMesh.new()
-	pole.top_radius = 0.07
-	pole.bottom_radius = 0.1
-	pole.height = 7.0
-	pole.radial_segments = 8
-	var arm := BoxMesh.new()
-	arm.size = Vector3(0.1, 0.1, 1.8)
-	var head := BoxMesh.new()
-	head.size = Vector3(0.45, 0.14, 0.7)
-	var pxs: Array = []
-	var axs: Array = []
-	var hxs: Array = []
-	for bx in range(-NB, NB):
-		for bz in range(-NB, NB):
-			var x0 := bx * BLK + ROAD * 0.5 + 0.8
-			var x1 := (bx + 1) * BLK - ROAD * 0.5 - 0.8
-			var z0 := bz * BLK + ROAD * 0.5 + 0.8
-			var z1 := (bz + 1) * BLK - ROAD * 0.5 - 0.8
-			for c in [[x0, z0, -1.0], [x1, z1, 1.0], [(x0 + x1) * 0.5, z0, -1.0], [(x0 + x1) * 0.5, z1, 1.0]]:
-				var p := Vector3(c[0], 0.18, c[1])
-				var dz: float = c[2]
-				pxs.append(Transform3D(Basis(), p + Vector3(0, 3.5, 0)))
-				axs.append(Transform3D(Basis(), p + Vector3(0, 6.9, dz * 0.9)))
-				var hp := p + Vector3(0, 6.85, dz * 1.75)
-				hxs.append(Transform3D(Basis(), hp))
-				if Vector2(hp.x - BLK * 0.5, hp.z).length() < 75.0:
-					var l := OmniLight3D.new()
-					l.position = hp + Vector3(0, -0.4, 0)
-					l.light_color = Color(1.0, 0.82, 0.55)
-					l.light_energy = 3.0
-					l.omni_range = 16.0
-					l.omni_attenuation = 1.2
-					l.visible = false
-					add_child(l)
-					lamp_lights.append(l)
-	var pm := plain(Color(0.18, 0.19, 0.2), 0.5, 0.6)
-	_mm(pole, pxs, pm, true)
-	_mm(arm, axs, pm, true)
-	_mm(head, hxs, lamp_head, false)
-
-# ---------------------------------------------------------------- araç
+# ---------------------------------------------------------------- oyuncu aracı
 func _fit(inst: Node3D, length: float, front_filter: String) -> Node3D:
 	var root := Node3D.new()
 	var pivot := Node3D.new()
 	root.add_child(pivot)
 	pivot.add_child(inst)
-	var a := _aabb(inst, root)
+	var a := aabb_of(inst, root)
 	if a.size.x > a.size.z:
 		pivot.rotation.y = PI / 2
-		a = _aabb(inst, root)
-	var s := length / maxf(a.size.z, 0.001)
-	pivot.scale = Vector3.ONE * s
-	a = _aabb(inst, root)
+		a = aabb_of(inst, root)
+	pivot.scale = Vector3.ONE * (length / maxf(a.size.z, 0.001))
+	a = aabb_of(inst, root)
 	if front_filter != "":
-		var hl := _aabb(inst, root, front_filter)
+		var hl := aabb_of(inst, root, front_filter)
 		if hl.size != Vector3.ZERO and hl.get_center().z < a.get_center().z:
 			pivot.rotation.y += PI
-			a = _aabb(inst, root)
+			a = aabb_of(inst, root)
 	pivot.position = -Vector3(a.get_center().x, a.position.y, a.get_center().z)
-	root.set_meta("aabb", AABB(Vector3(a.position.x - a.get_center().x, 0, a.position.z - a.get_center().z), a.size))
+	root.set_meta("aabb", AABB(Vector3(-a.size.x * 0.5, 0, -a.size.z * 0.5), a.size))
 	return root
+
+func _merge(root: Node3D) -> ArrayMesh:
+	var by_mat := {}
+	var order: Array = []
+	for mi in root.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if m.mesh == null:
+			continue
+		var xf := _xform_to(m, root)
+		for i in m.mesh.get_surface_count():
+			var mat: Material = m.get_active_material(i)
+			if not by_mat.has(mat):
+				var st := SurfaceTool.new()
+				st.begin(Mesh.PRIMITIVE_TRIANGLES)
+				by_mat[mat] = st
+				order.append(mat)
+			(by_mat[mat] as SurfaceTool).append_from(m.mesh, i, xf)
+	var am := ArrayMesh.new()
+	for mat in order:
+		(by_mat[mat] as SurfaceTool).commit(am)
+		am.surface_set_material(am.get_surface_count() - 1, mat)
+	return am
 
 func _paint_car(inst: Node, c1: Color, c2: Color) -> void:
 	var p1 := StandardMaterial3D.new()
@@ -576,29 +410,7 @@ func _paint_car(inst: Node, c1: Color, c2: Color) -> void:
 			elif nm.begins_with("Glass"):
 				m.set_surface_override_material(i, gl)
 
-func _merge(root: Node3D) -> ArrayMesh:
-	var by_mat := {}
-	var order: Array = []
-	for mi in root.find_children("*", "MeshInstance3D", true, false):
-		var m := mi as MeshInstance3D
-		if m.mesh == null:
-			continue
-		var xf := _xform_to(m, root)
-		for i in m.mesh.get_surface_count():
-			var mat: Material = m.get_active_material(i)
-			if not by_mat.has(mat):
-				var st := SurfaceTool.new()
-				st.begin(Mesh.PRIMITIVE_TRIANGLES)
-				by_mat[mat] = st
-				order.append(mat)
-			(by_mat[mat] as SurfaceTool).append_from(m.mesh, i, xf)
-	var am := ArrayMesh.new()
-	for mat in order:
-		(by_mat[mat] as SurfaceTool).commit(am)
-		am.surface_set_material(am.get_surface_count() - 1, mat)
-	return am
-
-func _car_visual(police: bool, c1: Color, c2: Color) -> Node3D:
+func car_visual(c1: Color, c2: Color, scl: float = 1.0) -> Node3D:
 	if car_scene == null:
 		car_scene = load("res://assets/models/car.glb")
 	var key := c1.to_html() + c2.to_html()
@@ -611,10 +423,94 @@ func _car_visual(police: bool, c1: Color, c2: Color) -> Node3D:
 	var root := Node3D.new()
 	var body := MeshInstance3D.new()
 	body.mesh = car_mesh_cache[key][0]
+	body.scale = Vector3.ONE * scl
 	root.add_child(body)
-	root.set_meta("aabb", car_mesh_cache[key][1])
-	if police:
-		var a: AABB = root.get_meta("aabb")
+	var a: AABB = car_mesh_cache[key][1]
+	root.set_meta("aabb", AABB(a.position * scl, a.size * scl))
+	return root
+
+func _moto_visual(c1: Color) -> Node3D:
+	var root := Node3D.new()
+	var parts := [[Vector3(0, 0.62, 0), Vector3(0.22, 0.3, 1.6), Color(0.1, 0.1, 0.1), 0.5, 0.4], [Vector3(0, 0.88, 0.25), Vector3(0.34, 0.26, 0.7), c1, 0.3, 0.5], [Vector3(0, 0.95, -0.35), Vector3(0.3, 0.1, 0.6), Color(0.08, 0.08, 0.08), 0.8, 0.0], [Vector3(0, 1.15, 0.72), Vector3(0.5, 0.35, 0.06), Color(0.2, 0.25, 0.3), 0.1, 0.3], [Vector3(-0.32, 0.8, -0.45), Vector3(0.22, 0.35, 0.5), Color(0.95, 0.95, 0.96), 0.3, 0.4], [Vector3(0.32, 0.8, -0.45), Vector3(0.22, 0.35, 0.5), Color(0.95, 0.95, 0.96), 0.3, 0.4]]
+	for pa in parts:
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = pa[1]
+		mi.mesh = bm
+		mi.material_override = plain(pa[2], pa[3], pa[4])
+		mi.position = pa[0]
+		root.add_child(mi)
+	for z in [-0.72, 0.72]:
+		var w := MeshInstance3D.new()
+		var cy := CylinderMesh.new()
+		cy.top_radius = 0.33
+		cy.bottom_radius = 0.33
+		cy.height = 0.14
+		w.mesh = cy
+		w.rotation.z = PI / 2
+		w.position = Vector3(0, 0.33, z)
+		w.material_override = plain(Color(0.05, 0.05, 0.05), 0.85)
+		root.add_child(w)
+	var rider: Node3D = _human_model(Color(0.1, 0.17, 0.36), false)
+	rider.position = Vector3(0, 0.45, -0.2)
+	rider.scale = Vector3.ONE * 0.95
+	root.add_child(rider)
+	root.set_meta("aabb", AABB(Vector3(-0.4, 0, -1.0), Vector3(0.8, 1.9, 2.0)))
+	return root
+
+func spawn_car(t: String, pos: Vector3, yaw: float) -> void:
+	if car != null and is_instance_valid(car):
+		car.queue_free()
+	car_type = t
+	var sp: Dictionary = C.VEH[t]
+	car = VehicleBody3D.new()
+	car.mass = sp["mass"]
+	car.center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
+	car.center_of_mass = Vector3(0, 0.25, 0)
+	car.contact_monitor = true
+	car.max_contacts_reported = 4
+	car.position = pos
+	car.rotation.y = yaw
+	add_child(car)
+	var moto: bool = sp.get("moto", false)
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = Vector3(0.8, 1.0, 2.1) if moto else Vector3(1.85, 0.75, 4.3)
+	cs.shape = bs
+	cs.position = Vector3(0, 0.75, 0)
+	car.add_child(cs)
+	var c1 := Color(sp["c1"])
+	var c2 := Color(sp["c2"])
+	var liv := "std"
+	if game and game.G.size() > 0:
+		liv = game.G.get("livery", "std")
+	if liv == "retro" and not sp.get("civil", false):
+		c2 = Color(0.75, 0.1, 0.1)
+	elif liv == "matte" and not sp.get("civil", false):
+		c1 = Color(0.12, 0.13, 0.15)
+	var scl := 1.12 if t == "special" else (1.05 if t == "suv" else 1.0)
+	car_vis = _moto_visual(c1) if moto else car_visual(c1, c2, scl)
+	car.add_child(car_vis)
+	var a: AABB = car_vis.get_meta("aabb")
+	var wx := 0.32 if moto else 0.8
+	var wz := 0.72 if moto else 1.36
+	for wp in [Vector3(wx, 0.4, wz), Vector3(-wx, 0.4, wz), Vector3(wx, 0.4, -wz), Vector3(-wx, 0.4, -wz)]:
+		var w := VehicleWheel3D.new()
+		w.position = wp
+		w.wheel_radius = 0.34
+		w.wheel_rest_length = 0.12
+		w.suspension_travel = 0.2
+		w.suspension_stiffness = 60.0 if t == "special" else 45.0
+		w.suspension_max_force = 30000.0 if t == "special" else 14000.0
+		w.damping_compression = 0.9
+		w.damping_relaxation = 1.3
+		w.wheel_friction_slip = 2.6
+		w.wheel_roll_influence = 0.02 if moto else 0.12
+		w.use_as_steering = wp.z > 0
+		w.use_as_traction = wp.z < 0
+		car.add_child(w)
+	my_lb.clear()
+	if sp["lb"] and not moto:
 		var top := a.size.y
 		var bar := MeshInstance3D.new()
 		var bm := BoxMesh.new()
@@ -622,59 +518,34 @@ func _car_visual(police: bool, c1: Color, c2: Color) -> Node3D:
 		bar.mesh = bm
 		bar.material_override = plain(Color(0.05, 0.05, 0.06), 0.4, 0.5)
 		bar.position = Vector3(0, top + 0.02, -0.25)
-		root.add_child(bar)
+		car_vis.add_child(bar)
 		for side in [-1.0, 1.0]:
 			var lm := MeshInstance3D.new()
 			var lb := BoxMesh.new()
 			lb.size = Vector3(0.5, 0.13, 0.28)
 			lm.mesh = lb
-			lm.material_override = lb_mat_r if side < 0 else lb_mat_b
 			lm.position = Vector3(side * 0.29, top + 0.1, -0.25)
-			root.add_child(lm)
+			car_vis.add_child(lm)
+			my_lb.append(lm)
 		for side in [-1.0, 1.0]:
-			var t := Label3D.new()
-			t.text = "POLİS"
-			t.font_size = 96
-			t.pixel_size = 0.0045
-			t.modulate = Color(0.05, 0.15, 0.45)
-			t.outline_size = 0
-			t.position = Vector3(side * (a.size.x * 0.5 + 0.01), 0.72, -0.1)
-			t.rotation.y = side * PI / 2
-			root.add_child(t)
-	return root
-
-func _spawn_car(pos: Vector3, yaw: float) -> void:
-	car = VehicleBody3D.new()
-	car.mass = 1350.0
-	car.center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
-	car.center_of_mass = Vector3(0, 0.3, 0)
-	car.position = pos
-	car.rotation.y = yaw
-	add_child(car)
-	var cs := CollisionShape3D.new()
-	var bs := BoxShape3D.new()
-	bs.size = Vector3(1.85, 0.75, 4.3)
-	cs.shape = bs
-	cs.position = Vector3(0, 0.75, 0)
-	car.add_child(cs)
-	var vis := _car_visual(true, Color(0.95, 0.95, 0.96), Color(0.06, 0.16, 0.42))
-	car.add_child(vis)
-	for wp in [Vector3(0.8, 0.4, 1.35), Vector3(-0.8, 0.4, 1.35), Vector3(0.8, 0.4, -1.38), Vector3(-0.8, 0.4, -1.38)]:
-		var w := VehicleWheel3D.new()
-		w.position = wp
-		w.wheel_radius = 0.34
-		w.wheel_rest_length = 0.12
-		w.suspension_travel = 0.2
-		w.suspension_stiffness = 45.0
-		w.suspension_max_force = 14000.0
-		w.damping_compression = 0.9
-		w.damping_relaxation = 1.3
-		w.wheel_friction_slip = 2.6
-		w.wheel_roll_influence = 0.12
-		w.use_as_steering = wp.z > 0
-		w.use_as_traction = wp.z < 0
-		car.add_child(w)
-	var a: AABB = vis.get_meta("aabb")
+			var tl := Label3D.new()
+			tl.text = "POLİS"
+			tl.font_size = 96
+			tl.pixel_size = 0.0045
+			tl.modulate = Color(0.05, 0.15, 0.45) if c1.get_luminance() > 0.5 else Color(0.95, 0.95, 1)
+			tl.outline_size = 0
+			tl.position = Vector3(side * (a.size.x * 0.5 + 0.01), 0.72, -0.1)
+			tl.rotation.y = side * PI / 2
+			car_vis.add_child(tl)
+	else:
+		for side in [-1.0, 1.0]:
+			var lm := MeshInstance3D.new()
+			var lb := BoxMesh.new()
+			lb.size = Vector3(0.12, 0.12, 0.12) if moto else Vector3(0.25, 0.06, 0.04)
+			lm.mesh = lb
+			lm.position = Vector3(side * 0.32, 1.1, -0.6) if moto else Vector3(side * 0.2, 0.45, a.size.z * 0.5 + 0.02)
+			car_vis.add_child(lm)
+			my_lb.append(lm)
 	lb_r = OmniLight3D.new()
 	lb_r.light_color = Color(1, 0.1, 0.1)
 	lb_r.omni_range = 14.0
@@ -691,28 +562,31 @@ func _spawn_car(pos: Vector3, yaw: float) -> void:
 		s.spot_range = 45.0
 		s.spot_angle = 28.0
 		s.light_energy = 0.0
-		s.shadow_enabled = false
-		s.position = Vector3(side * 0.62, 0.72, 2.25)
+		s.position = Vector3(side * (0.0 if moto else 0.62), 0.72, a.size.z * 0.5)
 		s.rotation = Vector3(-0.06, PI, 0)
 		car.add_child(s)
 		if side < 0:
 			head_l = s
 		else:
 			head_r = s
+	fuel = 100.0
+	tire = 100.0
+	dmg = 0.0
+	prev_vel = Vector3.ZERO
 
-# ---------------------------------------------------------------- karakter
-func _human(tint: Color, cop: bool) -> Node3D:
+# ---------------------------------------------------------------- memur
+func _human_model(tint: Color, cop: bool) -> Node3D:
 	if human_scene == null:
 		human_scene = load("res://assets/models/human.glb")
 	var inst: Node3D = human_scene.instantiate()
 	var holder := Node3D.new()
 	holder.add_child(inst)
-	var a := _aabb(inst, holder)
+	var a := aabb_of(inst, holder)
 	var s := 1.8 / maxf(a.size.y, 0.001)
 	inst.scale = Vector3.ONE * s
-	a = _aabb(inst, holder)
+	a = aabb_of(inst, holder)
 	inst.position.y -= a.position.y
-	var body := StandardMaterial3D.new()
+	var body := pbody_mat if cop else StandardMaterial3D.new()
 	body.albedo_color = tint
 	body.roughness = 0.72
 	for mi in inst.find_children("*", "MeshInstance3D", true, false):
@@ -748,217 +622,202 @@ func _spawn_player(pos: Vector3) -> void:
 	cs.shape = cap
 	cs.position.y = 0.9
 	player.add_child(cs)
-	pvis = _human(Color(0.1, 0.17, 0.36), true)
+	pvis = _human_model(Color(0.1, 0.17, 0.36), true)
 	player.add_child(pvis)
 	panim = pvis.get_meta("anim")
 
-func _spawn_extras() -> void:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 7
-	var spots := [Vector3(BLK * 0.5 + 10, 0.18, ROAD * 0.5 + 2.2), Vector3(BLK * 0.5 - 14, 0.18, ROAD * 0.5 + 1.8), Vector3(BLK * 0.5 + 4, 0.18, -ROAD * 0.5 - 2.0)]
-	for p in spots:
-		var h := _human(Color.from_hsv(rng.randf(), 0.5, 0.6), false)
-		h.position = p
-		h.rotation.y = rng.randf() * TAU
-		add_child(h)
-	var paints := [Color(0.55, 0.05, 0.05), Color(0.1, 0.1, 0.11), Color(0.7, 0.72, 0.74)]
-	for i in 3:
-		var v := _car_visual(false, paints[i], paints[i] * 0.6)
-		v.position = Vector3(BLK * 0.5 + 9 + i * 7.0, 0.0, -ROAD * 0.5 + 1.3)
-		v.rotation.y = -PI / 2
-		add_child(v)
+func set_outfit(col: Color) -> void:
+	pbody_mat.albedo_color = col
 
-# ---------------------------------------------------------------- arayüz
-func _btn_tex(size: Vector2i, col: Color) -> ImageTexture:
-	var img := Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
-	var r := 22.0
-	for y in size.y:
-		for x in size.x:
-			var dx := maxf(maxf(r - x, x - (size.x - 1 - r)), 0.0)
-			var dy := maxf(maxf(r - y, y - (size.y - 1 - r)), 0.0)
-			var d := sqrt(dx * dx + dy * dy)
-			if d <= r:
-				var edge := r - d < 3.0
-				img.set_pixel(x, y, Color(1, 1, 1, 0.55) if edge else col)
-	return ImageTexture.create_from_image(img)
-
-func _mk_btn(id: String, label: String, action: String, size: Vector2i, col: Color, fs: int = 30) -> TouchScreenButton:
-	var b := TouchScreenButton.new()
-	b.texture_normal = _btn_tex(size, col)
-	b.texture_pressed = _btn_tex(size, col.lightened(0.35))
-	if action != "":
-		b.action = action
-	var l := Label.new()
-	l.text = label
-	l.size = Vector2(size)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", fs)
-	l.add_theme_color_override("font_outline_color", Color(0, 0, 0))
-	l.add_theme_constant_override("outline_size", 6)
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(l)
-	b.set_meta("size", Vector2(size))
-	ui_layer.add_child(b)
-	btns[id] = b
-	return b
-
-func _build_ui() -> void:
-	ui_layer = CanvasLayer.new()
-	add_child(ui_layer)
-	var dark := Color(0.06, 0.1, 0.18, 0.62)
-	_mk_btn("left", "◀", "steer_left", Vector2i(150, 150), dark, 64)
-	_mk_btn("right", "▶", "steer_right", Vector2i(150, 150), dark, 64)
-	_mk_btn("gas", "GAZ\n▲", "gas", Vector2i(150, 200), Color(0.08, 0.38, 0.16, 0.7), 32)
-	_mk_btn("brake", "FREN\n▼", "brake", Vector2i(150, 140), Color(0.45, 0.08, 0.08, 0.7), 28)
-	_mk_btn("hand", "EL\nFRENİ", "hand", Vector2i(110, 90), dark, 20)
-	_mk_btn("siren", "SİREN", "", Vector2i(130, 70), Color(0.35, 0.05, 0.1, 0.7), 22).pressed.connect(func(): siren = not siren)
-	_mk_btn("enter", "İN", "", Vector2i(130, 70), dark, 24).pressed.connect(_toggle_enter)
-	_mk_btn("view", "1. ŞAHIS", "", Vector2i(130, 70), dark, 20).pressed.connect(_toggle_view)
-	_mk_btn("night", "GECE", "", Vector2i(130, 70), dark, 22).pressed.connect(func(): _set_night(not night))
-	joy_ctrl = Control.new()
-	joy_ctrl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	joy_ctrl.draw.connect(_draw_joy)
-	ui_layer.add_child(joy_ctrl)
-	hud = Label.new()
-	hud.position = Vector2(20, 14)
-	hud.add_theme_font_size_override("font_size", 26)
-	hud.add_theme_color_override("font_outline_color", Color(0, 0, 0))
-	hud.add_theme_constant_override("outline_size", 8)
-	ui_layer.add_child(hud)
-	get_viewport().size_changed.connect(_layout)
-	_layout()
-
-func _layout() -> void:
-	var vs := get_viewport().get_visible_rect().size
-	var m := 24.0
-	btns["left"].position = Vector2(m, vs.y - 150 - m)
-	btns["right"].position = Vector2(m + 170, vs.y - 150 - m)
-	btns["gas"].position = Vector2(vs.x - 150 - m, vs.y - 200 - m)
-	btns["brake"].position = Vector2(vs.x - 320 - m, vs.y - 140 - m)
-	btns["hand"].position = Vector2(vs.x - 300 - m, vs.y - 260 - m)
-	var x := vs.x - m
-	for id in ["night", "view", "enter", "siren"]:
-		x -= 140
-		btns[id].position = Vector2(x, m)
-	joy_ctrl.size = vs
-
-func _btn_hit(p: Vector2) -> bool:
-	for b in btns.values():
-		if not b.visible:
-			continue
-		var r := Rect2(b.position, b.get_meta("size"))
-		if r.has_point(p):
-			return true
-	return false
-
-func _draw_joy() -> void:
-	if mode != "foot":
-		return
-	var vs := get_viewport().get_visible_rect().size
-	var c := joy_origin if joy_id >= 0 else Vector2(150, vs.y - 150)
-	joy_ctrl.draw_circle(c, 85, Color(1, 1, 1, 0.12))
-	joy_ctrl.draw_arc(c, 85, 0, TAU, 48, Color(1, 1, 1, 0.4), 3)
-	joy_ctrl.draw_circle(c + joy_vec * 60, 36, Color(0.5, 0.7, 1, 0.55))
-
-func _input(e: InputEvent) -> void:
-	if e is InputEventScreenTouch:
-		var t := e as InputEventScreenTouch
-		var vs := get_viewport().get_visible_rect().size
-		if t.pressed:
-			if _btn_hit(t.position):
-				return
-			if mode == "foot" and t.position.x < vs.x * 0.4 and joy_id < 0:
-				joy_id = t.index
-				joy_origin = t.position
-				joy_vec = Vector2.ZERO
-			elif look_id < 0:
-				look_id = t.index
-				look_last = t.position
-		else:
-			if t.index == joy_id:
-				joy_id = -1
-				joy_vec = Vector2.ZERO
-			if t.index == look_id:
-				look_id = -1
-	elif e is InputEventScreenDrag:
-		var d := e as InputEventScreenDrag
-		if d.index == joy_id:
-			joy_vec = ((d.position - joy_origin) / 70.0).limit_length(1.0)
-		elif d.index == look_id:
-			var dl := d.position - look_last
-			look_last = d.position
-			cam_yaw -= dl.x * 0.006
-			cam_pitch = clampf(cam_pitch - dl.y * 0.004, -1.2, 0.6)
-			cam_free = 2.5
-
-func _set_mode(m: String) -> void:
+func set_mode(m: String) -> void:
 	mode = m
-	var car_ui := m == "car"
-	for id in ["left", "right", "gas", "brake", "hand", "siren"]:
-		btns[id].visible = car_ui
-	(btns["enter"].get_child(0) as Label).text = "İN" if car_ui else "BİN"
-	player.visible = not car_ui
-	player.process_mode = Node.PROCESS_MODE_DISABLED if car_ui else Node.PROCESS_MODE_INHERIT
-	(player.get_child(0) as CollisionShape3D).disabled = car_ui
-	joy_ctrl.queue_redraw()
+	var in_car := m == "car"
+	player.visible = not in_car
+	(player.get_child(0) as CollisionShape3D).disabled = in_car
+	if ui:
+		ui.on_mode()
 
-func _toggle_enter() -> void:
+func toggle_enter() -> void:
+	if mode == "interior":
+		return
 	if mode == "car":
-		if car.linear_velocity.length() > 3.0:
+		if car_speed() > 3.0:
+			ui.toast("Önce aracı durdur.")
 			return
 		var side := car.global_transform.basis.x
-		player.global_position = car.global_position + side * 1.6 + Vector3(0, 0.3, 0)
-		player.rotation.y = car.rotation.y
-		cam_yaw = car.rotation.y + PI
+		var q := car.global_position + side * 1.6
+		var r: Array = city.collide_circle(Vector2(q.x, q.z), 0.5)
+		player.global_position = Vector3(r[0].x, 0.4, r[0].y)
+		cam_yaw = player_yaw() + PI
 		car.engine_force = 0
 		car.brake = 20
-		_set_mode("foot")
+		set_mode("foot")
 	else:
 		if player.global_position.distance_to(car.global_position) < 4.5:
-			_set_mode("car")
+			set_mode("car")
+		else:
+			ui.toast("Araca yaklaş.")
 
-func _toggle_view() -> void:
-	view = "fps" if view == "tps" else "tps"
-	(btns["view"].get_child(0) as Label).text = "3. ŞAHIS" if view == "fps" else "1. ŞAHIS"
+func cycle_view() -> void:
+	view = {"tps": "fps", "fps": "top", "top": "tps"}[view]
 
-func _set_night(on: bool) -> void:
-	night = on
-	env.sky = sky_night if on else sky_day
-	sun.light_energy = 0.06 if on else 2.0
-	sun.light_color = Color(0.55, 0.65, 1.0) if on else Color(1.0, 0.95, 0.86)
-	env.fog_light_color = Color(0.05, 0.06, 0.1) if on else Color(0.74, 0.79, 0.86)
-	env.tonemap_exposure = 1.25 if on else 1.0
-	glass_lit.emission_energy_multiplier = 2.4 if on else 0.0
-	lamp_head.emission_energy_multiplier = 6.0 if on else 0.2
-	for l in lamp_lights:
-		l.visible = on
-	head_l.light_energy = 6.0 if on else 0.0
-	head_r.light_energy = 6.0 if on else 0.0
-	(btns["night"].get_child(0) as Label).text = "GÜNDÜZ" if on else "GECE"
+func set_siren(on: bool) -> void:
+	siren = on
+	if on:
+		if not snd_siren.playing:
+			snd_siren.play()
+	else:
+		snd_siren.stop()
 
-# ---------------------------------------------------------------- oyun döngüsü
+# ---------------------------------------------------------------- iç mekân
+func enter_interior(spots: Array) -> void:
+	if interior:
+		interior.queue_free()
+	interior = Node3D.new()
+	interior.position = Vector3(0, -200, 0)
+	add_child(interior)
+	var w := 16.0
+	var d := 10.5
+	var floor_m := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(w, d)
+	floor_m.mesh = pm
+	floor_m.material_override = plain(Color(0.5, 0.36, 0.24), 0.55)
+	floor_m.position = Vector3(w / 2, 0, d / 2)
+	interior.add_child(floor_m)
+	var fl := StaticBody3D.new()
+	var fcs := CollisionShape3D.new()
+	var fbs := BoxShape3D.new()
+	fbs.size = Vector3(w, 0.2, d)
+	fcs.shape = fbs
+	fl.position = Vector3(w / 2, -0.1, d / 2)
+	fl.add_child(fcs)
+	interior.add_child(fl)
+	var wm: Material = city.pbr("plaster", 0.5, Color(0.95, 0.92, 0.85), Color(0.8, 0.77, 0.7))
+	var walls := [[Vector3(w / 2, 1.4, -0.1), Vector3(w + 0.4, 2.8, 0.2)], [Vector3(-0.1, 1.4, d / 2), Vector3(0.2, 2.8, d)], [Vector3(w + 0.1, 1.4, d / 2), Vector3(0.2, 2.8, d)], [Vector3(w / 4 - 0.45, 0.3, d + 0.1), Vector3(w / 2 - 0.9, 0.6, 0.2)], [Vector3(w * 0.75 + 0.45, 0.3, d + 0.1), Vector3(w / 2 - 0.9, 0.6, 0.2)]]
+	for wl in walls:
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = wl[1]
+		mi.mesh = bm
+		mi.material_override = wm
+		mi.position = wl[0]
+		interior.add_child(mi)
+		var sb := StaticBody3D.new()
+		var cs := CollisionShape3D.new()
+		var bs := BoxShape3D.new()
+		bs.size = wl[1]
+		cs.shape = bs
+		sb.position = wl[0]
+		sb.add_child(cs)
+		interior.add_child(sb)
+	var furn := [[Vector3(2.6, 0.3, 1.8), Vector3(3.2, 0.6, 1.8), Color(0.35, 0.3, 0.42)], [Vector3(13.2, 0.42, 7.6), Vector3(3.2, 0.85, 2.2), Color(0.42, 0.28, 0.2)], [Vector3(8, 0.38, 4.6), Vector3(3, 0.75, 1.5), Color(0.24, 0.36, 0.3)], [Vector3(1.6, 0.95, 8.6), Vector3(2, 1.9, 1.4), Color(0.3, 0.3, 0.34)]]
+	for f in furn:
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = f[1]
+		mi.mesh = bm
+		mi.material_override = plain(f[2], 0.75)
+		mi.position = f[0]
+		interior.add_child(mi)
+	var lamp := OmniLight3D.new()
+	lamp.light_color = Color(1, 0.86, 0.65)
+	lamp.light_energy = 2.2
+	lamp.omni_range = 14.0
+	lamp.position = Vector3(w / 2, 2.6, d / 2)
+	interior.add_child(lamp)
+	var exitm := MeshInstance3D.new()
+	var ep := PlaneMesh.new()
+	ep.size = Vector2(1.6, 0.6)
+	exitm.mesh = ep
+	exitm.material_override = plain(Color(0.25, 0.7, 0.35), 0.5)
+	exitm.position = Vector3(w / 2, 0.01, d - 0.3)
+	interior.add_child(exitm)
+	for sp in spots:
+		var g := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.14
+		sm.height = 0.28
+		g.mesh = sm
+		var em := plain(Color(1, 0.8, 0.2), 0.3)
+		em.emission_enabled = true
+		em.emission = Color(1, 0.8, 0.2)
+		em.emission_energy_multiplier = 2.5
+		g.material_override = em
+		g.position = Vector3(sp["x"], 1.1, sp["z"])
+		interior.add_child(g)
+		sp["node"] = g
+	player.global_position = interior.global_position + Vector3(w / 2, 0.3, d - 1.0)
+	player.velocity = Vector3.ZERO
+	set_mode("interior")
+
+func exit_interior(door_p: Vector2, out: float) -> void:
+	set_mode("foot")
+	player.global_position = Vector3(door_p.x, 0.4, door_p.y + out * 1.2)
+	if interior:
+		interior.queue_free()
+		interior = null
+
+func interior_local() -> Vector2:
+	var l := player.global_position - interior.global_position
+	return Vector2(l.x, l.z)
+
+# ---------------------------------------------------------------- döngü
 func _physics_process(delta: float) -> void:
+	if game == null or not game.playing():
+		car.engine_force = 0.0
+		car.brake = 10.0
+		return
+	var G: Dictionary = game.G
 	if mode == "car":
+		var sp: Dictionary = C.VEH[car_type]
 		var s := Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")
-		var spd := car.linear_velocity.length()
+		var fat: float = G["fatigue"]
+		if fat > 72.0:
+			s += sin(t_acc * 1.5) * 0.18 * (fat - 72.0) / 28.0
+		var spd := car_speed()
 		var max_steer := lerpf(0.55, 0.18, clampf(spd / 30.0, 0.0, 1.0))
-		steer = move_toward(steer, s * max_steer, delta * 2.2)
+		var resp := 1.0 - maxf(0.0, fat - 50.0) / 110.0
+		steer = move_toward(steer, s * max_steer, delta * 2.2 * resp)
 		car.steering = steer
 		var fwd := car.linear_velocity.dot(car.global_transform.basis.z)
 		var g := Input.get_action_strength("gas")
 		var b := Input.get_action_strength("brake")
+		var vmax: float = float(sp["max"]) * (1.0 - dmg / 230.0) * (0.8 if tire < 20.0 else 1.0)
+		if fuel <= 0.0:
+			g = 0.0
 		if b > 0.0 and fwd > 1.0:
 			car.engine_force = 0.0
 			car.brake = 35.0 * b
 		elif b > 0.0:
 			car.brake = 0.0
-			car.engine_force = -2200.0 * b
+			car.engine_force = -2400.0 * b
 		else:
 			car.brake = 0.0 if g > 0.0 else 3.0
-			car.engine_force = 4800.0 * g * clampf(1.0 - fwd / 48.0, 0.0, 1.0)
+			car.engine_force = float(sp["eng"]) * g * clampf(1.0 - fwd / vmax, 0.0, 1.0)
 		if Input.is_action_pressed("hand"):
 			car.brake = 70.0
+		fuel = maxf(0.0, fuel - (g * 0.11 + 0.006) * delta)
+		var grip := 2.6 * (0.5 + 0.5 * tire / 100.0) * (0.7 if weather == "rain" else 1.0)
+		var skid := 0.0
+		for wch in car.get_children():
+			if wch is VehicleWheel3D:
+				var vw := wch as VehicleWheel3D
+				vw.wheel_friction_slip = grip * (0.55 if Input.is_action_pressed("hand") and not vw.use_as_steering else 1.0)
+				skid += 1.0 - vw.get_skidinfo()
+		if spd > 4.0:
+			tire = maxf(0.0, tire - skid * delta * 0.6)
+		var dvl := (car.linear_velocity - prev_vel).length()
+		if dvl / maxf(delta, 0.001) > 60.0 and car.get_contact_count() > 0:
+			var dur: float = sp.get("dur", 1.0)
+			dmg = minf(100.0, dmg + dvl * 2.2 * dur)
+			shake = minf(1.0, dvl / 12.0)
+			if dvl > 14.0:
+				G["hp"] = maxf(5.0, float(G["hp"]) - dvl * 0.8)
+			for bdy in car.get_colliding_bodies():
+				if bdy.has_meta("ncar"):
+					game.on_car_hit(bdy.get_meta("ncar"), dvl)
+		prev_vel = car.linear_velocity
 	else:
 		car.engine_force = 0.0
 		car.brake = 15.0
@@ -968,10 +827,17 @@ func _physics_process(delta: float) -> void:
 			v = kv.limit_length(1.0)
 		var f := Vector3(sin(cam_yaw + PI), 0, cos(cam_yaw + PI))
 		var r := Vector3(-f.z, 0, f.x)
+		if mode == "interior":
+			f = Vector3(0, 0, -1)
+			r = Vector3(1, 0, 0)
 		var dir := (f * -v.y + r * v.x)
+		var fat2: float = G["fatigue"]
+		var spd2 := 5.2 * (1.0 - maxf(0.0, fat2 - 40.0) / 140.0) * (0.8 if float(G["hp"]) < 40.0 else 1.0) * (0.9 if float(G["hunger"]) > 85.0 else 1.0)
+		if mode == "interior":
+			spd2 = 3.2
 		var vel := player.velocity
-		vel.x = dir.x * 5.2
-		vel.z = dir.z * 5.2
+		vel.x = dir.x * spd2
+		vel.z = dir.z * spd2
 		vel.y = 0.0 if player.is_on_floor() else vel.y - 20.0 * delta
 		player.velocity = vel
 		player.move_and_slide()
@@ -985,37 +851,115 @@ func _physics_process(delta: float) -> void:
 func _process(delta: float) -> void:
 	t_acc += delta
 	var fl := int(t_acc * 7.0) % 2 == 0
-	lb_mat_r.emission_energy_multiplier = (6.0 if fl else 0.3) if siren else 0.4
-	lb_mat_b.emission_energy_multiplier = (0.3 if fl else 6.0) if siren else 0.4
+	for i in my_lb.size():
+		var red := i == 0
+		var lit := siren and (fl == red)
+		(my_lb[i] as MeshInstance3D).material_override = (lb_on_r if red else lb_on_b) if lit else (lb_off_r if red else lb_off_b)
 	lb_r.light_energy = (4.0 if fl else 0.0) if siren else 0.0
 	lb_b.light_energy = (0.0 if fl else 4.0) if siren else 0.0
+	var hp := (Input.is_action_pressed("horn") or horn_down) and not get_tree().paused
+	if hp and not snd_horn.playing:
+		snd_horn.play()
+	elif not hp and snd_horn.playing:
+		snd_horn.stop()
 	cam_free = maxf(0.0, cam_free - delta)
-	if mode == "foot":
-		joy_ctrl.queue_redraw()
-	if not cam_override:
-		_update_camera(delta)
-	var kmh := car.linear_velocity.length() * 3.6
-	hud.text = ("ARAÇ  %d km/h" % kmh if mode == "car" else "YAYA") + "   •   " + ("1. şahıs" if view == "fps" else "3. şahıs") + ("   •   SİREN" if siren else "")
+	shake = maxf(0.0, shake - delta * 2.0)
+	if game and game.G.size() > 0:
+		_env_update(delta)
+		var pp := player_pos()
+		if mode != "interior":
+			city.update_stream(pp, delta)
+		rain.global_position = cam.global_position + Vector3(0, 14, 0) - cam.global_transform.basis.z * 10.0
+		lamp_t -= delta
+		if lamp_t <= 0:
+			lamp_t = 0.5
+			var night: bool = game.night_f() > 0.35
+			var pts: Array = city.lamps_near(pp, lamp_pool.size()) if night else []
+			for i in lamp_pool.size():
+				var l: OmniLight3D = lamp_pool[i]
+				l.visible = i < pts.size() and l.get_meta("allowed", true)
+				if l.visible:
+					l.global_position = (pts[i] as Vector3) + Vector3(0, -0.4, 0)
+	else:
+		city.update_stream(Vector2(20, 64), delta)
+	_update_camera(delta)
+
+func _env_update(_delta: float) -> void:
+	var h: float = float(game.G["time"]) / 60.0
+	var n: float = game.night_f()
+	var d := 1.0 - n
+	var ang := (h - 6.0) / 12.0 * PI
+	sun.rotation = Vector3(-maxf(0.25, sin(clampf(ang, 0.0, PI))), -0.6 + h * 0.08, 0)
+	var dusk := clampf(1.0 - absf(h - 19.0) / 1.6, 0.0, 1.0) + clampf(1.0 - absf(h - 6.5) / 1.4, 0.0, 1.0)
+	var ov := 1.0 if (weather == "overcast" or weather == "rain") else 0.0
+	sun.light_energy = d * (2.1 - ov * 1.3) + n * 0.07
+	sun.light_color = Color(1.0, 0.95, 0.86).lerp(Color(1.0, 0.62, 0.35), clampf(dusk, 0, 1) * 0.7).lerp(Color(0.55, 0.65, 1.0), n)
+	sun.shadow_enabled = n < 0.7
+	env.sky = sky_night if n > 0.55 else sky_day
+	env.background_energy_multiplier = (lerpf(1.0, 0.35, clampf(n * 2.0, 0, 1)) * (0.7 if ov > 0 else 1.0)) if n <= 0.55 else 1.0
+	env.ambient_light_energy = lerpf(1.0, 0.45, n) * (0.8 if ov > 0 else 1.0)
+	env.fog_light_color = Color(0.74, 0.79, 0.86).lerp(Color(0.62, 0.64, 0.68), ov).lerp(Color(0.05, 0.06, 0.1), n)
+	var tfog := 0.0018
+	if weather == "fog":
+		tfog = 0.03
+	elif weather == "rain":
+		tfog = 0.006
+	env.fog_density = lerpf(env.fog_density, tfog, 0.03)
+	env.tonemap_exposure = 1.0 + n * 0.25
+	city.glass_lit.emission_energy_multiplier = clampf(n * 1.6, 0, 1) * 2.4
+	city.lamp_head.emission_energy_multiplier = 0.2 + clampf(n * 1.6, 0, 1) * 6.0
+	var hl := 6.0 if (lights_on or n > 0.35) else 0.0
+	head_l.light_energy = hl
+	head_r.light_energy = hl
+	rain.emitting = weather == "rain" and mode != "interior"
 
 func _update_camera(delta: float) -> void:
+	if game == null or not game.playing():
+		title_ang += delta * 0.05
+		var c := Vector3(20, 0, 64)
+		cam.global_position = c + Vector3(cos(title_ang) * 90, 50, sin(title_ang) * 90)
+		cam.look_at(c, Vector3.UP)
+		cam.fov = 58.0
+		return
+	var sh := Vector3(randf() - 0.5, randf() - 0.5, 0) * shake * 0.3
+	if mode == "interior" and interior:
+		var ip := interior.global_position
+		cam.global_position = ip + Vector3(8, 9.5, 16.5)
+		cam.look_at(ip + Vector3(8, 0, 5.8), Vector3.UP)
+		cam.fov = 52.0
+		pvis.visible = true
+		return
 	if mode == "car":
 		var xf := car.global_transform
-		if view == "fps":
-			cam.global_position = xf * driver_seat
-			var look := xf * (driver_seat + Vector3(0, -0.05, 10))
-			cam.look_at(look, Vector3.UP)
+		var car_yaw := atan2(xf.basis.z.x, xf.basis.z.z)
+		if view == "fps" and not C.VEH[car_type].get("moto", false):
+			cam.global_position = xf * driver_seat + sh * 0.3
+			cam.look_at(xf * (driver_seat + Vector3(0, -0.05, 10)), Vector3.UP)
 			cam.fov = 72.0
+		elif view == "top":
+			var fwd := Vector3(sin(car_yaw), 0, cos(car_yaw))
+			cam.global_position = cam.global_position.lerp(car.global_position + Vector3(0, 42, 0) - fwd * 14.0, 1.0 - exp(-5.0 * delta))
+			cam.look_at(car.global_position + fwd * 6.0, Vector3.UP)
+			cam.fov = 60.0
 		else:
-			var car_yaw := atan2(xf.basis.z.x, xf.basis.z.z)
 			if cam_free <= 0.0:
-				cam_yaw = lerp_angle(cam_yaw, car_yaw + PI, 1.0 - exp(-4.0 * delta))
+				var back_yaw := car_yaw + PI
+				if car.linear_velocity.dot(xf.basis.z) < -3.0:
+					back_yaw = car_yaw
+				cam_yaw = lerp_angle(cam_yaw, back_yaw, 1.0 - exp(-4.0 * delta))
 				cam_pitch = lerpf(cam_pitch, -0.18, 1.0 - exp(-3.0 * delta))
-			var dist := 7.2 + car.linear_velocity.length() * 0.05
-			var off := Vector3(sin(cam_yaw), 0, cos(cam_yaw)) * dist * cos(cam_pitch) + Vector3(0, 2.0 - sin(cam_pitch) * dist, 0)
+			var dist := 7.2 + car_speed() * 0.05
 			var target := car.global_position + Vector3(0, 1.1, 0)
-			cam.global_position = cam.global_position.lerp(target + off, 1.0 - exp(-10.0 * delta))
+			var dirv := Vector3(sin(cam_yaw), 0, cos(cam_yaw))
+			for i in 4:
+				var q := target + dirv * dist
+				if not city.inside_building(Vector2(q.x, q.z), 0.4):
+					break
+				dist *= 0.65
+			var off := dirv * dist * cos(cam_pitch) + Vector3(0, 2.0 - sin(cam_pitch) * dist, 0)
+			cam.global_position = cam.global_position.lerp(target + off, 1.0 - exp(-10.0 * delta)) + sh
 			cam.look_at(target, Vector3.UP)
-			cam.fov = 66.0 + minf(12.0, car.linear_velocity.length() * 0.35)
+			cam.fov = 66.0 + minf(12.0, car_speed() * 0.35)
 	else:
 		var head := player.global_position + Vector3(0, 1.62, 0)
 		if view == "fps":
@@ -1023,81 +967,17 @@ func _update_camera(delta: float) -> void:
 			cam.global_position = head + Vector3(sin(cam_yaw + PI), 0, cos(cam_yaw + PI)) * 0.15
 			cam.rotation = Vector3(cam_pitch, cam_yaw, 0)
 			cam.fov = 75.0
+		elif view == "top":
+			pvis.visible = true
+			cam.global_position = cam.global_position.lerp(player.global_position + Vector3(0, 26, 8), 1.0 - exp(-6.0 * delta))
+			cam.look_at(player.global_position, Vector3.UP)
+			cam.fov = 60.0
 		else:
 			pvis.visible = true
-			var dist := 3.4
+			var dist2 := 3.4
 			var back := Vector3(sin(cam_yaw), 0, cos(cam_yaw))
 			var right := Vector3(back.z, 0, -back.x)
-			var p := head + back * dist * cos(cam_pitch) + Vector3(0, -sin(cam_pitch) * dist + 0.2, 0) - right * 0.55
+			var p := head + back * dist2 * cos(cam_pitch) + Vector3(0, -sin(cam_pitch) * dist2 + 0.2, 0) - right * 0.55
 			cam.global_position = cam.global_position.lerp(p, 1.0 - exp(-14.0 * delta))
 			cam.look_at(head - right * 0.55 - back * 2.0 + Vector3(0, -0.25, 0), Vector3.UP)
 			cam.fov = 68.0
-
-# ---------------------------------------------------------------- otomatik ekran görüntüleri (CI)
-func _secs(s: float) -> void:
-	await get_tree().create_timer(s).timeout
-
-func _shot(dir: String, n: String) -> void:
-	await RenderingServer.frame_post_draw
-	await RenderingServer.frame_post_draw
-	var img := get_viewport().get_texture().get_image()
-	img.save_png(dir + "/" + n + ".png")
-	print("SHOT ", n, " draw_calls=", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), " objects=", Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), " fps=", Engine.get_frames_per_second())
-
-func _place_car(p: Vector3, yaw: float) -> void:
-	car.global_transform = Transform3D(Basis(Vector3.UP, yaw), p)
-	car.linear_velocity = Vector3.ZERO
-	car.angular_velocity = Vector3.ZERO
-
-func _run_shots() -> void:
-	var dir := ProjectSettings.globalize_path("res://shots")
-	DirAccess.make_dir_recursive_absolute(dir)
-	await _secs(2.0)
-	var p0 := car.global_position
-	Input.action_press("gas")
-	await _secs(2.5)
-	Input.action_release("gas")
-	print("DRIVE_TEST move=", car.global_position - p0, " forward=", car.global_transform.basis.z, " speed=", car.linear_velocity.length())
-	var y0 := car.rotation.y
-	Input.action_press("steer_left")
-	Input.action_press("gas")
-	await _secs(1.5)
-	Input.action_release("steer_left")
-	Input.action_release("gas")
-	print("STEER_LEFT_TEST dyaw=", car.rotation.y - y0)
-	_place_car(Vector3(BLK * 0.5 - 4, 0.5, ROAD * 0.25 + 0.2), PI / 2)
-	await _secs(1.5)
-	cam_yaw = PI / 2 + PI
-	await _secs(1.0)
-	await _shot(dir, "01_arac_3sahis")
-	view = "fps"
-	await _secs(0.6)
-	await _shot(dir, "02_arac_1sahis")
-	view = "tps"
-	_toggle_enter()
-	player.global_position = car.global_position + Vector3(-1.5, 0.2, 3.2)
-	cam_yaw = PI * 0.15
-	await _secs(1.5)
-	await _shot(dir, "03_yaya_3sahis")
-	view = "fps"
-	cam_yaw = PI * 0.75
-	cam_pitch = -0.05
-	await _secs(0.6)
-	await _shot(dir, "04_yaya_1sahis")
-	view = "tps"
-	_set_mode("car")
-	cam_override = true
-	cam.global_position = Vector3(BLK * 0.5 + 60, 55, 70)
-	cam.look_at(Vector3(BLK * 0.5 - 10, 0, -10), Vector3.UP)
-	cam.fov = 60
-	await _secs(1.0)
-	await _shot(dir, "05_sehir_havadan")
-	cam_override = false
-	_set_night(true)
-	siren = true
-	cam_yaw = PI / 2 + PI * 0.75
-	cam_free = 5.0
-	await _secs(1.5)
-	await _shot(dir, "06_gece_siren")
-	print("SHOTS_DONE")
-	get_tree().quit()
