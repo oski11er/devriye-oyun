@@ -208,7 +208,7 @@ object GameEngine {
         if (fx.neutral) {
             Economy.addLedger(gs, homeClub, "Bilet geliri payı", gate / 3); Economy.addLedger(gs, awayClub, "Bilet geliri payı", gate / 3)
         } else Economy.addLedger(gs, homeClub, "Bilet geliri (${fx.attendance} seyirci)", gate)
-        when (comp?.type) {
+        if (comp != null) when (comp.type) {
             CompetitionType.LEAGUE -> {
                 val lg = gs.leagues[comp.id]
                 if (lg != null) {

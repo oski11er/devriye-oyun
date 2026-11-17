@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -21,7 +23,7 @@ android {
         // Kendi anahtarınızla imzalamak için: keystore.properties dosyası oluşturun (README'ye bakın).
         val ksFile = rootProject.file("keystore.properties")
         if (ksFile.exists()) {
-            val props = java.util.Properties().apply { load(ksFile.inputStream()) }
+            val props = Properties().apply { load(ksFile.inputStream()) }
             create("release") {
                 storeFile = rootProject.file(props.getProperty("storeFile"))
                 storePassword = props.getProperty("storePassword")
