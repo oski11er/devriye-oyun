@@ -271,6 +271,11 @@ func _setup_env() -> void:
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.74, 0.79, 0.86)
 	env.fog_density = 0.0018
+	env.volumetric_fog_density = 0.002
+	env.volumetric_fog_length = 140.0
+	env.volumetric_fog_detail_spread = 2.0
+	env.volumetric_fog_gi_inject = 0.5
+	env.volumetric_fog_ambient_inject = 0.2
 	env.fog_aerial_perspective = 0.75
 	env.adjustment_enabled = true
 	env.adjustment_contrast = 1.06
@@ -973,7 +978,7 @@ func _env_update(_delta: float) -> void:
 		vfog = 0.03
 	elif weather == "rain":
 		vfog = 0.008
-	env.volumetric_fog_density = lerpf(env.volumetric_fog_density, vfog + n * 0.004, 0.03)
+	env.volumetric_fog_density = move_toward(env.volumetric_fog_density, vfog + n * 0.004, _delta * 0.01)
 	env.volumetric_fog_albedo = Color(0.85, 0.88, 0.95)
 	env.volumetric_fog_emission = Color(0.02, 0.025, 0.04) * n
 	env.volumetric_fog_anisotropy = 0.6

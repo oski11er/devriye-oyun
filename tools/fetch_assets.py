@@ -86,29 +86,29 @@ for name, (prefs, kws) in HDRIS.items():
 
 # ---- foto-taranmış 3D modeller (glTF) -> assets/props/<rol>/<rol>.gltf
 PROPS = {
-    'bench':   ['bench'],
-    'bin':     ['trash', 'garbage', 'bin', 'dumpster'],
-    'hydrant': ['hydrant'],
-    'planter': ['planter', 'potted', 'pot_plant', 'flower_pot'],
-    'barrier': ['barrier', 'barricade', 'jersey'],
-    'bollard': ['bollard', 'post'],
-    'tree':    ['tree'],
-    'cone':    ['traffic_cone', 'cone'],
+    'bench':   (['park_bench', 'bench'], ['picnic', 'table']),
+    'bin':     (['trash_can', 'trashcan', 'trash_bin', 'garbage', 'waste_bin', 'dustbin', 'bin_'], ['cabinet']),
+    'hydrant': (['fire_hydrant', 'hydrant'], []),
+    'planter': (['planter', 'potted_plant'], []),
+    'barrier': (['road_barrier', 'barrier', 'barricade', 'jersey'], ['fence', 'chain']),
+    'bollard': (['bollard'], ['lamp']),
+    'tree':    (['tree_small', 'tree'], ['street', 'dead', 'stump', 'log']),
+    'cone':    (['traffic_cone', 'cone'], ['pine']),
 }
 try:
     models = js('https://api.polyhaven.com/assets?t=models')
+    print('MODEL_IDS', ' '.join(sorted(models.keys())))
 except Exception as e:
     models = {}
     print('model listesi alınamadı', e)
 PROOT = os.path.join(os.path.dirname(__file__), '..', 'assets', 'props')
-for role, kws in PROPS.items():
-    best, bc = None, -1
-    for k, v in models.items():
-        hay = (k + ' ' + v.get('name', '') + ' ' + ' '.join(v.get('tags', []))).lower()
-        if any(w in hay for w in kws) and v.get('download_count', 0) > bc:
-            if role == 'tree' and not any(t in hay for t in ['tree']):
-                continue
-            best, bc = k, v.get('download_count', 0)
+for role, (kws, bad) in PROPS.items():
+    best = None
+    for w in kws:
+        cands = [k for k in models if w in k.lower() and not any(x in k.lower() for x in bad)]
+        if cands:
+            best = max(cands, key=lambda k: models[k].get('download_count', 0))
+            break
     if not best:
         print('model yok:', role); continue
     try:
