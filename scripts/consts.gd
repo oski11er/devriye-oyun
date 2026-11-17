@@ -5,8 +5,8 @@ extends RefCounted
 const S := 64.0          # blok aralığı (yol merkezleri arası)
 const RW := 14.0         # şehir yolu genişliği
 const HW := 24.0         # otoyol genişliği (z = 0 satırı)
-const WB := 6            # dünya: -WB..WB-1 blok
-const LIM := 384.0       # WB * S
+const WB := 10           # dünya: -WB..WB-1 blok (1,28 km x 1,28 km)
+const LIM := 640.0       # WB * S
 const TS := 0.5          # oyun dakikası / gerçek saniye
 const KMH := 3.6
 
@@ -77,11 +77,11 @@ static func hh(k: int) -> float:
 	return HW * 0.5 if k == 0 else RW * 0.5
 
 static func district_at(cx: int, cz: int) -> String:
-	if cx >= 2:
+	if cx >= 4:
 		return "liman" if cz < 0 else "sanayi"
-	if cx <= -3:
+	if cx <= -4:
 		return "eski"
-	if absi(cz) >= 2:
+	if absi(cz) >= 3:
 		return "konut"
 	return "merkez"
 

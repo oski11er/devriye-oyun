@@ -442,7 +442,7 @@ func toast(msg: String, kind: String = "") -> void:
 	l.custom_minimum_size = Vector2(minf(540, vs().x * 0.4), 0)
 	p.add_child(l)
 	toasts.add_child(p)
-	while toasts.get_child_count() > 4:
+	while toasts.get_child_count() > 3:
 		var old = toasts.get_child(0)
 		toasts.remove_child(old)
 		old.queue_free()

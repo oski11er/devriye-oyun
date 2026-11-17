@@ -72,7 +72,7 @@ jobs:
 
       - name: Oyun içi ekran görüntüleri
         run: |
-          timeout 700 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver vulkan -- --shots > logs/test_full.txt 2>&1 || true
+          timeout 1300 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver vulkan -- --shots > logs/test_full.txt 2>&1 || true
           grep -hE "SCRIPT ERROR|Parse Error|ERROR:|   at: |TEST_|SHOT|TESTS_DONE" logs/test_full.txt | grep -v ALSA | head -n 300 > logs/summary.txt || true
 
       - name: Android ayarları

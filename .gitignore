@@ -3,3 +3,4 @@ build/
 assets/tex/
 *.import
 !assets/models/*.import
+assets/props/

@@ -84,5 +84,47 @@ for name, (prefs, kws) in HDRIS.items():
     credits.append(f'{name}: {aid} (Poly Haven, CC0)')
     save(files['hdri']['1k']['hdr']['url'], name + '.hdr')
 
+# ---- foto-taranmış 3D modeller (glTF) -> assets/props/<rol>/<rol>.gltf
+PROPS = {
+    'bench':   ['bench'],
+    'bin':     ['trash', 'garbage', 'bin', 'dumpster'],
+    'hydrant': ['hydrant'],
+    'planter': ['planter', 'potted', 'pot_plant', 'flower_pot'],
+    'barrier': ['barrier', 'barricade', 'jersey'],
+    'bollard': ['bollard', 'post'],
+    'tree':    ['tree'],
+    'cone':    ['traffic_cone', 'cone'],
+}
+try:
+    models = js('https://api.polyhaven.com/assets?t=models')
+except Exception as e:
+    models = {}
+    print('model listesi alınamadı', e)
+PROOT = os.path.join(os.path.dirname(__file__), '..', 'assets', 'props')
+for role, kws in PROPS.items():
+    best, bc = None, -1
+    for k, v in models.items():
+        hay = (k + ' ' + v.get('name', '') + ' ' + ' '.join(v.get('tags', []))).lower()
+        if any(w in hay for w in kws) and v.get('download_count', 0) > bc:
+            if role == 'tree' and not any(t in hay for t in ['tree']):
+                continue
+            best, bc = k, v.get('download_count', 0)
+    if not best:
+        print('model yok:', role); continue
+    try:
+        f = js('https://api.polyhaven.com/files/' + best)
+        g = f['gltf']['1k']['gltf']
+        d = os.path.join(PROOT, role)
+        os.makedirs(d, exist_ok=True)
+        open(os.path.join(d, role + '.gltf'), 'wb').write(get(g['url']))
+        for rel, inc in g.get('include', {}).items():
+            dst = os.path.join(d, rel)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            open(dst, 'wb').write(get(inc['url']))
+        print('model', role, '->', best)
+        credits.append(f'{role} (model): {best} (Poly Haven, CC0)')
+    except Exception as e:
+        print('model HATA', role, best, e)
+
 open(os.path.join(OUT, 'CREDITS.txt'), 'w').write('\n'.join(credits) + '\n')
 print('tamam')

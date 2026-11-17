@@ -57,13 +57,15 @@ var snd_horn: AudioStreamPlayer
 var snd_beep: AudioStreamPlayer
 var horn_down = false
 var driver_seat = Vector3(0.36, 1.12, -0.15)
+var flip_t = 0.0
+var edge_warned = false
 var quality = "medium"
 
 func quality_name() -> String:
-	return {"high": "Yüksek", "medium": "Orta", "low": "Düşük"}[quality]
+	return {"ultra": "Ultra (AAA)", "high": "Yüksek", "medium": "Orta", "low": "Düşük"}[quality]
 
 func cycle_quality() -> void:
-	quality = {"high": "medium", "medium": "low", "low": "high"}[quality]
+	quality = {"ultra": "high", "high": "medium", "medium": "low", "low": "ultra"}[quality]
 	apply_quality()
 	var f = FileAccess.open("user://quality.txt", FileAccess.WRITE)
 	if f:
@@ -71,14 +73,35 @@ func cycle_quality() -> void:
 
 func apply_quality() -> void:
 	var vp = get_viewport()
-	vp.scaling_3d_scale = {"high": 1.0, "medium": 0.85, "low": 0.7}[quality]
-	vp.msaa_3d = Viewport.MSAA_2X if quality == "high" else Viewport.MSAA_DISABLED
-	sun.directional_shadow_max_distance = {"high": 140.0, "medium": 100.0, "low": 60.0}[quality]
-	env.glow_enabled = quality != "low"
+	var q = quality
+	vp.scaling_3d_scale = {"ultra": 1.0, "high": 0.9, "medium": 0.8, "low": 0.66}[q]
+	vp.use_taa = q in ["ultra", "high"]
+	vp.msaa_3d = Viewport.MSAA_DISABLED
+	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED if q in ["ultra", "high"] else Viewport.SCREEN_SPACE_AA_FXAA
+	sun.directional_shadow_max_distance = {"ultra": 180.0, "high": 130.0, "medium": 90.0, "low": 55.0}[q]
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS if q == "ultra" else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	env.ssao_enabled = q != "low"
+	env.ssao_radius = 1.2
+	env.ssao_intensity = 2.2
+	env.ssao_detail = 0.6
+	env.ssil_enabled = q == "ultra"
+	env.ssil_intensity = 0.8
+	env.ssr_enabled = q in ["ultra", "high"]
+	env.ssr_max_steps = 48 if q == "ultra" else 32
+	env.ssr_fade_in = 0.15
+	env.ssr_fade_out = 2.0
+	env.ssr_depth_tolerance = 0.3
+	env.volumetric_fog_enabled = q in ["ultra", "high"]
+	env.glow_enabled = q != "low"
+	env.glow_bloom = 0.06 if q == "ultra" else 0.03
 	for i in lamp_pool.size():
-		(lamp_pool[i] as OmniLight3D).set_meta("allowed", i < {"high": 8, "medium": 6, "low": 3}[quality])
+		(lamp_pool[i] as OmniLight3D).set_meta("allowed", i < {"ultra": 12, "high": 8, "medium": 5, "low": 3}[q])
+		(lamp_pool[i] as OmniLight3D).shadow_enabled = q == "ultra" and i < 2
+	if city:
+		city.set_detail(q)
+	if traffic:
+		traffic.lod_dist = {"ultra": 60.0, "high": 40.0, "medium": 0.0, "low": 0.0}[q]
 
-# ---------------------------------------------------------------- yardımcılar
 func tex(n: String) -> Texture2D:
 	var p = "res://assets/tex/" + n
 	if ResourceLoader.exists(p):
@@ -172,7 +195,7 @@ func _ready() -> void:
 	add_child(cam)
 	cam.current = true
 	_setup_rain()
-	for i in 8:
+	for i in 12:
 		var l = OmniLight3D.new()
 		l.light_color = Color(1.0, 0.82, 0.55)
 		l.light_energy = 3.0
@@ -188,9 +211,9 @@ func _ready() -> void:
 	if FileAccess.file_exists("user://quality.txt"):
 		var qf = FileAccess.open("user://quality.txt", FileAccess.READ)
 		var q = qf.get_as_text().strip_edges()
-		if q in ["high", "medium", "low"]:
+		if q in ["ultra", "high", "medium", "low"]:
 			quality = q
-	elif OS.get_name() != "Android":
+	else:
 		quality = "high"
 	apply_quality()
 	set_mode("car")
@@ -466,7 +489,9 @@ func spawn_car(t: String, pos: Vector3, yaw: float) -> void:
 	car = VehicleBody3D.new()
 	car.mass = sp["mass"]
 	car.center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
-	car.center_of_mass = Vector3(0, 0.25, 0)
+	car.center_of_mass = Vector3(0, -0.15, 0)
+	car.collision_mask = 3
+	car.angular_damp = 1.2
 	car.contact_monitor = true
 	car.max_contacts_reported = 4
 	car.position = pos
@@ -505,7 +530,7 @@ func spawn_car(t: String, pos: Vector3, yaw: float) -> void:
 		w.damping_compression = 0.9
 		w.damping_relaxation = 1.3
 		w.wheel_friction_slip = 2.6
-		w.wheel_roll_influence = 0.02 if moto else 0.12
+		w.wheel_roll_influence = 0.02 if moto else 0.04
 		w.use_as_steering = wp.z > 0
 		w.use_as_traction = wp.z < 0
 		car.add_child(w)
@@ -658,6 +683,16 @@ func toggle_enter() -> void:
 		else:
 			ui.toast("Araca yaklaş.")
 
+func right_car() -> void:
+	var z = car.global_transform.basis.z
+	var yaw = atan2(z.x, z.z)
+	car.global_transform = Transform3D(Basis(Vector3.UP, yaw), car.global_position + Vector3(0, 0.8, 0))
+	car.linear_velocity = Vector3.ZERO
+	car.angular_velocity = Vector3.ZERO
+	flip_t = 0.0
+	if ui:
+		ui.toast("Araç doğrultuldu.")
+
 func cycle_view() -> void:
 	view = {"tps": "fps", "fps": "top", "top": "tps"}[view]
 
@@ -809,6 +844,25 @@ func _physics_process(delta: float) -> void:
 				skid += 1.0 - vw.get_skidinfo()
 		if spd > 4.0:
 			tire = maxf(0.0, tire - skid * delta * 0.6)
+		# yuvarlanma önleyici: aracın kendi eksenine göre devrilme hızını sönümle
+		var bas = car.global_transform.basis
+		var lav = bas.inverse() * car.angular_velocity
+		lav.x *= 0.9
+		lav.z *= 0.85
+		car.angular_velocity = bas * lav
+		var up_dot = bas.y.dot(Vector3.UP)
+		if up_dot < 0.5:
+			flip_t += delta
+			if flip_t > 1.2:
+				right_car()
+		else:
+			flip_t = 0.0
+		var pp2 = car_pos()
+		if (absf(pp2.x) > C.LIM - 6 or absf(pp2.y) > C.LIM - 6) and not edge_warned:
+			edge_warned = true
+			ui.toast("Şehir sınırı — ileride deniz var.", "warn")
+		elif absf(pp2.x) < C.LIM - 30 and absf(pp2.y) < C.LIM - 30:
+			edge_warned = false
 		var dvl = (car.linear_velocity - prev_vel).length()
 		if dvl / maxf(delta, 0.001) > 60.0 and car.get_contact_count() > 0:
 			var dur: float = sp.get("dur", 1.0)
@@ -868,6 +922,11 @@ func _process(delta: float) -> void:
 		snd_horn.stop()
 	cam_free = maxf(0.0, cam_free - delta)
 	shake = maxf(0.0, shake - delta * 2.0)
+	if mode == "foot":
+		var on_side = not city.is_road(Vector2(player.global_position.x, player.global_position.z))
+		pvis.position.y = lerpf(pvis.position.y, 0.18 if on_side else 0.0, 0.3)
+	else:
+		pvis.position.y = 0.0
 	if game and game.G.size() > 0:
 		_env_update(delta)
 		var pp = player_pos()
@@ -909,6 +968,16 @@ func _env_update(_delta: float) -> void:
 	elif weather == "rain":
 		tfog = 0.006
 	env.fog_density = lerpf(env.fog_density, tfog, 0.03)
+	var vfog = 0.002
+	if weather == "fog":
+		vfog = 0.03
+	elif weather == "rain":
+		vfog = 0.008
+	env.volumetric_fog_density = lerpf(env.volumetric_fog_density, vfog + n * 0.004, 0.03)
+	env.volumetric_fog_albedo = Color(0.85, 0.88, 0.95)
+	env.volumetric_fog_emission = Color(0.02, 0.025, 0.04) * n
+	env.volumetric_fog_anisotropy = 0.6
+	city.set_wet(weather == "rain")
 	env.tonemap_exposure = 1.0 + n * 0.25
 	city.glass_lit.emission_energy_multiplier = clampf(n * 1.6, 0, 1) * 2.4
 	city.lamp_head.emission_energy_multiplier = 0.2 + clampf(n * 1.6, 0, 1) * 6.0

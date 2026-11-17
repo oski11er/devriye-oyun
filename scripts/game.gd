@@ -1666,6 +1666,9 @@ func begin_shift(sh: String, rg: String, vh: String) -> void:
 	backup_cd = 0.0
 	M.ui.hide_offer()
 	M.traffic.clear_all()
+	if M.traffic.lod_dist > 0.0:
+		for cc in C.COLORS:
+			M.car_visual(Color(cc[1]), Color(cc[1]).darkened(0.2))
 	var kd: Dictionary = M.city.karakol_door()
 	var kp: Vector2 = kd["p"]
 	M.spawn_car(vh, Vector3(kp.x, 0.6, C.S + 3.5), PI / 2)
@@ -2094,6 +2097,7 @@ func pause_menu() -> void:
 	modal("⏸ Duraklatıldı", status_text() + "\n\n[font_size=17]Klavye: WASD/oklar sürüş • Boşluk el freni • E etkileşim • F in/bin • Q siren • C kamera • B takviye • I dosya • V görüş[/font_size]", [
 		B("Devam", Callable(), "pri"),
 		B("🗂 Dosya", open_file),
+		B("🔧 Aracı düzelt / kurtar", M.right_car),
 		B("📹 Kamera kayıtları", func(): show_bodycam(Callable())),
 		B("🎨 Grafik: " + M.quality_name(), func(): M.cycle_quality(); pause_menu()),
 		B("Vardiyayı bitir (erken ise ceza)", func(): end_shift(float(SH["end_abs"]) - now_abs() > 0), "dark", mission != null or state == "interior")])

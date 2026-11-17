@@ -11,6 +11,48 @@ var lamp_head: StandardMaterial3D
 var stream_t = 0.0
 const RAD := 2
 
+var detail = "high"
+var prop_cache = {}
+var wet = false
+
+func set_detail(q: String) -> void:
+	detail = q
+
+func set_wet(on: bool) -> void:
+	if on == wet:
+		return
+	wet = on
+	for key in ["asphalt", "pave", "lot"]:
+		var m = surf_mats.get(key) if key != "asphalt" else pbr("asphalt", 0.18, Color(0.85, 0.85, 0.85), Color(0.2, 0.2, 0.21))
+		if m == null:
+			continue
+		m.roughness = 0.22 if on else 1.0
+		m.metallic_specular = 0.8 if on else 0.5
+		m.albedo_color = Color(0.62, 0.62, 0.64) if on else (Color(0.85, 0.85, 0.85) if key == "asphalt" else Color.WHITE)
+
+const PROP_H = {"bench": 0.85, "bin": 1.0, "hydrant": 0.8, "planter": 0.9, "barrier": 0.9, "bollard": 1.0, "tree": 7.0, "cone": 0.7}
+func prop_mesh(role: String):
+	if prop_cache.has(role):
+		return prop_cache[role]
+	var path = "res://assets/props/%s/%s.gltf" % [role, role]
+	var res = null
+	if ResourceLoader.exists(path):
+		var sc = load(path)
+		if sc is PackedScene:
+			var inst = sc.instantiate()
+			var holder = Node3D.new()
+			holder.add_child(inst)
+			var a = M.aabb_of(inst, holder)
+			if a.size.y > 0.01:
+				var k = PROP_H[role] / a.size.y
+				inst.scale = Vector3.ONE * k
+				a = M.aabb_of(inst, holder)
+				inst.position -= Vector3(a.get_center().x, a.position.y, a.get_center().z)
+				res = M._merge(holder)
+			holder.free()
+	prop_cache[role] = res
+	return res
+
 func setup(main) -> void:
 	M = main
 	glass = _plain(Color(0.06, 0.08, 0.1), 0.05, 0.9)
@@ -22,7 +64,7 @@ func setup(main) -> void:
 	lamp_head.emission_enabled = true
 	lamp_head.emission = Color(1.0, 0.86, 0.6)
 	lamp_head.emission_energy_multiplier = 0.2
-	var size = C.LIM * 2.0 + 600.0
+	var size = C.LIM * 2.0 + 20.0
 	var g = MeshInstance3D.new()
 	var pm = PlaneMesh.new()
 	pm.size = Vector2(size, size)
@@ -35,16 +77,31 @@ func setup(main) -> void:
 	sb.add_child(cs)
 	add_child(sb)
 	for i in 4:
+		var horiz = i < 2
+		var sgn = -1.0 if i % 2 == 0 else 1.0
+		var e = C.LIM + 9.0
 		var w = StaticBody3D.new()
 		var c2 = CollisionShape3D.new()
 		var bs = BoxShape3D.new()
-		var horiz = i < 2
-		bs.size = Vector3(C.LIM * 2 + 40, 8, 2) if horiz else Vector3(2, 8, C.LIM * 2 + 40)
+		bs.size = Vector3(e * 2 + 4, 6, 2) if horiz else Vector3(2, 6, e * 2 + 4)
 		c2.shape = bs
 		w.add_child(c2)
-		var s = -1.0 if i % 2 == 0 else 1.0
-		w.position = Vector3(0, 4, s * (C.LIM + 1)) if horiz else Vector3(s * (C.LIM + 1), 4, 0)
+		w.position = Vector3(0, 3, sgn * e) if horiz else Vector3(sgn * e, 3, 0)
 		add_child(w)
+		var vis = MeshInstance3D.new()
+		var vm = BoxMesh.new()
+		vm.size = Vector3(e * 2 + 4, 1.2, 1.4) if horiz else Vector3(1.4, 1.2, e * 2 + 4)
+		vis.mesh = vm
+		vis.material_override = pbr("concrete", 0.3, Color(0.8, 0.8, 0.78), Color(0.6, 0.6, 0.6))
+		vis.position = Vector3(0, 0.6, sgn * e) if horiz else Vector3(sgn * e, 0.6, 0)
+		add_child(vis)
+		var rail = MeshInstance3D.new()
+		var rm = BoxMesh.new()
+		rm.size = Vector3(e * 2 + 4, 0.08, 0.08) if horiz else Vector3(0.08, 0.08, e * 2 + 4)
+		rail.mesh = rm
+		rail.material_override = _plain(Color(0.2, 0.3, 0.45), 0.4, 0.7)
+		rail.position = Vector3(0, 1.75, sgn * e) if horiz else Vector3(sgn * e, 1.75, 0)
+		add_child(rail)
 	# şehir dışı: deniz
 	var wm = MeshInstance3D.new()
 	var wp = PlaneMesh.new()
@@ -52,7 +109,7 @@ func setup(main) -> void:
 	wm.mesh = wp
 	var wmat = _plain(Color(0.08, 0.22, 0.32), 0.08, 0.2)
 	wm.material_override = wmat
-	wm.position.y = -0.3
+	wm.position.y = -1.2
 	add_child(wm)
 
 # ---------------------------------------------------------------- malzemeler
@@ -297,8 +354,9 @@ func _box(key: String, center: Vector3, size: Vector3, xf: Basis = Basis()) -> v
 func _mesh(key: String, mesh: Mesh, xf: Transform3D) -> void:
 	_st(key).append_from(mesh, 0, xf)
 
-func _collider(parent: Node3D, center: Vector3, size: Vector3) -> void:
+func _collider(parent: Node3D, center: Vector3, size: Vector3, layer: int = 1) -> void:
 	var sb = StaticBody3D.new()
+	sb.collision_layer = layer
 	sb.position = center
 	var cs = CollisionShape3D.new()
 	var bs = BoxShape3D.new()
@@ -336,7 +394,9 @@ func _mm(parent: Node3D, mesh: Mesh, xfs: Array, mat: Material, cast: bool) -> v
 		mm.set_instance_transform(i, xfs[i])
 	var mmi = MultiMeshInstance3D.new()
 	mmi.multimesh = mm
-	mmi.material_override = mat
+	if mat != null:
+		mmi.material_override = mat
+	mmi.visibility_range_end = 220.0
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if cast else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(mmi)
 
@@ -352,7 +412,7 @@ func _build_block(c: Vector2i) -> Node3D:
 	var cx = r.get_center().x
 	var cz = r.get_center().y
 	_box("pave", Vector3(cx, 0.09, cz), Vector3(r.size.x, 0.18, r.size.y))
-	_collider(node, Vector3(cx, 0.09, cz), Vector3(r.size.x, 0.18, r.size.y))
+	_collider(node, Vector3(cx, 0.09, cz), Vector3(r.size.x, 0.18, r.size.y), 2)
 	for s in [-1.0, 1.0]:
 		_box("trim", Vector3(cx, 0.1, cz + s * (r.size.y * 0.5 - 0.15)), Vector3(r.size.x, 0.2, 0.3))
 		_box("trim", Vector3(cx + s * (r.size.x * 0.5 - 0.15), 0.1, cz), Vector3(0.3, 0.2, r.size.y))
@@ -383,8 +443,16 @@ func _build_block(c: Vector2i) -> Node3D:
 			for k in 6:
 				_box("dark", ctr + Vector3(-2.6 + k * 1.04, 0, cr.size.y * 0.5 + 0.01), Vector3(0.06, 2.3, 0.02))
 		_collider(node, Vector3(cr.get_center().x, 2.8, cr.get_center().y), Vector3(cr.size.x, 5.2, cr.size.y))
+	var tree_m = prop_mesh("tree")
+	var tree_x = []
 	for tp in md["trees"]:
-		_tree(Vector3(tp.x, 0.18, tp.y), rng)
+		if tree_m != null:
+			tree_x.append(Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * rng.randf_range(0.8, 1.15)), Vector3(tp.x, 0.18, tp.y)))
+		else:
+			_tree(Vector3(tp.x, 0.18, tp.y), rng)
+	if tree_m != null:
+		_mm(node, tree_m, tree_x, null, true)
+	_street_props(node, r, rng)
 	for door in md["doors"]:
 		_door(node, door)
 	_roads(node, c, r)
@@ -397,6 +465,50 @@ func _build_block(c: Vector2i) -> Node3D:
 	_lamps(node, r)
 	_flush(node)
 	return node
+
+func _street_props(node: Node3D, r: Rect2, rng: RandomNumberGenerator) -> void:
+	if detail == "low":
+		return
+	var per = {"bench": 2, "bin": 3, "hydrant": 1, "planter": 2, "bollard": 4}
+	for role in per.keys():
+		var pm = prop_mesh(role)
+		var xs = []
+		for i in per[role]:
+			var side = rng.randi() % 4
+			var t = rng.randf_range(0.12, 0.88)
+			var p: Vector2
+			var yaw = 0.0
+			match side:
+				0:
+					p = Vector2(lerpf(r.position.x, r.end.x, t), r.position.y + 0.9)
+					yaw = 0.0
+				1:
+					p = Vector2(lerpf(r.position.x, r.end.x, t), r.end.y - 0.9)
+					yaw = PI
+				2:
+					p = Vector2(r.position.x + 0.9, lerpf(r.position.y, r.end.y, t))
+					yaw = PI / 2
+				_:
+					p = Vector2(r.end.x - 0.9, lerpf(r.position.y, r.end.y, t))
+					yaw = -PI / 2
+			if pm != null:
+				xs.append(Transform3D(Basis(Vector3.UP, yaw), Vector3(p.x, 0.18, p.y)))
+			else:
+				var b = Basis(Vector3.UP, yaw)
+				match role:
+					"bench":
+						_box("wood", Vector3(p.x, 0.62, p.y), Vector3(1.8, 0.08, 0.5), b)
+						_box("dark", Vector3(p.x, 0.4, p.y), Vector3(1.6, 0.44, 0.08), b)
+					"bin":
+						_box("cont_g", Vector3(p.x, 0.62, p.y), Vector3(0.6, 0.9, 0.6))
+					"hydrant":
+						_box("red", Vector3(p.x, 0.55, p.y), Vector3(0.28, 0.75, 0.28))
+					"planter":
+						_box("concrete", Vector3(p.x, 0.5, p.y), Vector3(1.0, 0.65, 1.0))
+					"bollard":
+						_box("dark", Vector3(p.x, 0.65, p.y), Vector3(0.16, 0.95, 0.16))
+		if pm != null and xs.size() > 0:
+			_mm(node, pm, xs, null, role == "bench" or role == "planter")
 
 func _building(node: Node3D, lt: Dictionary, rng: RandomNumberGenerator, wu: Array, wl: Array, wf: Array) -> void:
 	var br: Rect2 = lt["b"]
@@ -437,6 +549,39 @@ func _building(node: Node3D, lt: Dictionary, rng: RandomNumberGenerator, wu: Arr
 		_box("dark", pos + Vector3(size.x * 0.3, top + 3, -size.z * 0.3), Vector3(0.12, 6, 0.12))
 		_box("red", pos + Vector3(size.x * 0.3 + 0.9, top + 5.2, -size.z * 0.3), Vector3(1.8, 1.1, 0.04))
 	_windows(pos, size, base, rng, wu, wl, wf, depo)
+	_facade_details(pos, size, base, rng, depo, lt)
+
+func _facade_details(pos: Vector3, size: Vector3, base: float, rng: RandomNumberGenerator, depo: bool, lt: Dictionary) -> void:
+	var top = base + size.y
+	# korniş (çatı altı silme) ve kat bantları
+	_box("trim", pos + Vector3(0, top - 0.35, 0), Vector3(size.x + 0.5, 0.3, size.z + 0.5))
+	if not depo and size.y > 16.0:
+		var y = base + 3.6 + 3.4 * 3
+		while y < top - 3.0:
+			_box("trim", pos + Vector3(0, y, 0), Vector3(size.x + 0.18, 0.16, size.z + 0.18))
+			y += 3.4 * 3
+	if depo:
+		return
+	# vitrin tabelaları (zemin kat)
+	var sign_cols = ["red", "navy", "cont_g", "cont_y", "cont_b", "white"]
+	var faces = [[Vector3(0, 0, 1), size.x, size.z], [Vector3(0, 0, -1), size.x, size.z], [Vector3(1, 0, 0), size.z, size.x], [Vector3(-1, 0, 0), size.z, size.x]]
+	for f in faces:
+		var n: Vector3 = f[0]
+		var flen: float = f[1]
+		var depth: float = f[2]
+		var bas = Basis(Vector3.UP, atan2(n.x, n.z))
+		if rng.randf() < 0.75:
+			_box(sign_cols[rng.randi() % sign_cols.size()], pos + n * (depth * 0.5 + 0.12) + Vector3(0, base + 3.05, 0), Vector3(minf(flen - 2.0, rng.randf_range(4.0, 9.0)), 0.7, 0.12), bas)
+		if rng.randf() < 0.4:
+			_box("red" if rng.randf() < 0.5 else "cont_g", pos + n * (depth * 0.5 + 0.6) + Vector3(0, base + 2.75, 0), Vector3(minf(flen - 2.0, 5.0), 0.08, 1.2), bas)
+		# klima dış üniteleri
+		for k in rng.randi_range(0, 3):
+			var u = rng.randf_range(-flen * 0.4, flen * 0.4)
+			var yy = base + 5.0 + rng.randi_range(0, maxi(0, int((size.y - 7.0) / 3.4))) * 3.4 - 0.9
+			_box("metal", pos + n * (depth * 0.5 + 0.25) + bas.x * u + Vector3(0, yy, 0), Vector3(0.8, 0.55, 0.35), bas)
+	# çatı su deposu (konut/eski)
+	if lt.get("mk", "") in ["brick", "brick_dark", "plaster_warm"] and rng.randf() < 0.6:
+		_box("metal", pos + Vector3(size.x * 0.25, top + 1.0, -size.z * 0.2), Vector3(1.4, 1.4, 1.4))
 
 func _windows(pos: Vector3, size: Vector3, base: float, rng: RandomNumberGenerator, wu: Array, wl: Array, wf: Array, depo: bool) -> void:
 	var rows = int((size.y - 5.0) / 3.4)
@@ -461,6 +606,11 @@ func _windows(pos: Vector3, size: Vector3, base: float, rng: RandomNumberGenerat
 				var y = base + (5.2 if not depo else 6.0) + rr * 3.4
 				var p = pos + nrm * (depth * 0.5 + 0.02) + tangent * u + Vector3(0, y, 0)
 				wf.append(Transform3D(bas, p - nrm * 0.01))
+				if not depo:
+					_box("trim", p + nrm * 0.07 + Vector3(0, -1.0, 0), Vector3(1.65, 0.09, 0.2), bas)
+					if rr > 0 and rng.randf() < 0.22:
+						_box("concrete", p + nrm * 0.6 + Vector3(0, -1.05, 0), Vector3(2.2, 0.14, 1.1), bas)
+						_box("dark", p + nrm * 1.12 + Vector3(0, -0.55, 0), Vector3(2.2, 0.9, 0.04), bas)
 				if rng.randf() < 0.38:
 					wl.append(Transform3D(bas, p))
 				else:

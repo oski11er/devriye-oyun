@@ -8,6 +8,7 @@ var spawn_t = 0.0
 var geo_cache = {}
 var mat_cache = {}
 var human_scene: PackedScene
+var lod_dist = 40.0
 
 class NCar:
 	var node: AnimatableBody3D
@@ -244,6 +245,15 @@ func make_car(kind: String, p: Vector2, dir: int, col: Color = Color.WHITE) -> N
 	body.add_child(mi)
 	if kind == "cop":
 		c.lb = _lightbar(body, 1.62, -0.3)
+	if lod_dist > 0.0 and not c.big:
+		var det = M.car_visual(c.col, Color(0.06, 0.16, 0.42) if kind == "cop" else c.col.darkened(0.2))
+		for ch in det.get_children():
+			if ch is MeshInstance3D:
+				ch.visibility_range_end = lod_dist
+				ch.visibility_range_end_margin = 4.0
+		body.add_child(det)
+		mi.visibility_range_begin = lod_dist
+		mi.visibility_range_begin_margin = 4.0
 	body.set_meta("ncar", c)
 	add_child(body)
 	c.node = body
