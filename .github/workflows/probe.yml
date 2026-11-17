@@ -1,0 +1,11 @@
+name: probe
+on:
+  push:
+    branches: [ futbol-menajer ]
+    paths: [ 'tools/probe.py' ]
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/probe.py
